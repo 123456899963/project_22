@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>识茶自查 · 茗脉</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<link rel="stylesheet" href="assets/css/pages.css">
+</head>
+<body id="page-root">
+<div id="site-header"></div>
+
+<main>
+  <section class="container">
+    <nav class="crumbs" aria-label="面包屑">
+      <a href="index.html">首页</a><span>/</span><span>识茶自查</span>
+    </nav>
+  </section>
+
+  <section class="container page-head">
+    <div class="page-head__row">
+      <div>
+        <h1 class="h1">拍照识茶 · 五维特征自查</h1>
+        <p class="page-head__desc">拍下或上传一张茶叶照片，再按你看到的样子勾选特征。茗脉不会用 AI 猜测茶名，只按你确认的条件检索候选茶品。</p>
+      </div>
+      <span class="chip">B2 · 特征自查</span>
+    </div>
+  </section>
+
+  <section class="container selfcheck-layout">
+    <div class="selfcheck-main">
+      <div class="panel">
+        <h2 class="h3">1. 拍照 / 上传</h2>
+        <p class="field__hint mt-2">支持 jpg / png / webp，单张 ≤5MB。原型阶段图片只在本机预览，不会上传服务器。</p>
+        <label class="upload-box mt-4" id="upload-zone">
+          <input type="file" id="photo-input" accept="image/*" hidden>
+          <p><strong>点击选择照片</strong>或直接拍照</p>
+          <p class="caption">没有照片也可以跳过，直接按特征自查</p>
+        </label>
+        <div class="upload-preview" id="photo-preview"></div>
+        <button class="btn-link mt-3 hidden" id="remove-photo" type="button">移除照片</button>
+      </div>
+
+      <div class="panel mt-4">
+        <div class="selfcheck-head">
+          <h2 class="h3">2. 勾选五维特征</h2>
+          <span class="caption" id="selected-count">已选 0 项</span>
+        </div>
+        <p class="field__hint mt-2">同一维度可多选（满足任一即可）；未勾选的维度视为「不限」。</p>
+        <div id="dim-groups" class="dim-groups mt-4"></div>
+
+        <div class="banner banner--info mt-4">
+          不确定怎么描述？可以先只勾选最有把握的 1～2 个维度，结果页会告诉你每款茶命中了哪些条件。
+        </div>
+      </div>
+    </div>
+
+    <aside class="selfcheck-aside">
+      <div class="panel panel--soft">
+        <h3 class="h3">自查小贴士</h3>
+        <ul class="tip-list mt-3">
+          <li><strong>干茶形态</strong>：看条索是扁平、卷曲还是颗粒。</li>
+          <li><strong>色泽</strong>：在自然光下观察，避免暖光偏色。</li>
+          <li><strong>汤色</strong>：白瓷杯最准，记录第一泡。</li>
+          <li><strong>发酵度</strong>：可从茶汤由绿到红的深浅判断。</li>
+          <li><strong>香气</strong>：热嗅、温嗅、冷嗅各一次。</li>
+        </ul>
+      </div>
+      <div class="panel mt-4">
+        <h3 class="h3">结果如何排序？</h3>
+        <p class="caption mt-2">按命中维度数量降序；同分时按最后更新时间排序。已下架或内容建设中的亚类不会出现在候选里。</p>
+      </div>
+    </aside>
+  </section>
+
+  <section class="container">
+    <div class="selfcheck-bar" id="selfcheck-bar">
+      <div class="selfcheck-bar__inner">
+        <div>
+          <strong id="bar-count">未选择特征</strong>
+          <span class="caption" id="bar-dims"></span>
+        </div>
+        <div class="selfcheck-bar__actions">
+          <button class="btn btn-ghost" id="reset-btn" type="button">重置</button>
+          <button class="btn btn-primary btn-lg" id="go-btn" type="button" disabled>查看候选茶品</button>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div id="site-footer"></div>
+
+<script src="assets/js/data/categories.js"></script>
+<script src="assets/js/data/teas.js"></script>
+<script src="assets/js/data/comments.js"></script>
+<script src="assets/js/core/config.js"></script>
+<script src="assets/js/core/dom.js"></script>
+<script src="assets/js/core/store.js"></script>
+<script src="assets/js/core/ui.js"></script>
+<script src="assets/js/pages/selfcheck.js"></script>
+</body>
+</html>

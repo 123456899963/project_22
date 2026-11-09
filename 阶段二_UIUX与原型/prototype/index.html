@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>茗脉 · 六大茶类结构化知识库与图鉴</title>
+  <meta name="description" content="茗脉：按茶类、亚类、茶品逐层查阅六大茶类，附统一规格的实拍图鉴与冲泡参数。">
+  <link rel="stylesheet" href="assets/css/tokens.css">
+  <link rel="stylesheet" href="assets/css/base.css">
+  <link rel="stylesheet" href="assets/css/components.css">
+  <link rel="stylesheet" href="assets/css/pages.css">
+</head>
+<body>
+  <div id="site-header"></div>
+
+  <main>
+    <section class="hero">
+      <div class="container hero__inner">
+        <div>
+          <p class="caption">MING MAI · TEA ATLAS</p>
+          <h1 class="hero__title">把六大茶类，<br>收进一张<em>色谱图鉴</em></h1>
+          <p class="hero__desc">线下遇到不认识的茶，从干茶、汤色、叶底三步对照；知道名字，直接搜。结构化字段、可追溯来源、统一规格的实拍图鉴。</p>
+          <form class="search-box hero__search" action="search.html" method="get">
+            <label class="sr-only" for="home-q">搜索茶名、别名、产地</label>
+            <input class="search-input" id="home-q" name="q" type="search" placeholder="搜索茶名、别名、产地，如「龙井」「浙江」" required>
+            <button class="btn btn-primary" type="submit">搜索</button>
+          </form>
+          <div class="hero__quick" id="quick-links"></div>
+          <div class="hero__stats">
+            <div><b>6</b><span>大茶类</span></div>
+            <div><b>23</b><span>个亚类</span></div>
+            <div><b>46</b><span>款茶品</span></div>
+          </div>
+        </div>
+        <div class="hero__visual" id="hero-visual" aria-hidden="true"></div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="container">
+        <div class="section-head">
+          <div>
+            <h2 class="h2">六大茶类</h2>
+            <p>按茶类进入；未选择亚类时，默认展示该茶类全部茶品。</p>
+          </div>
+          <a class="btn-link" href="category.html?type=green">从绿茶开始 →</a>
+        </div>
+        <div class="cat-grid" id="cat-grid"></div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="container">
+        <div class="section-head">
+          <div>
+            <h2 class="h2">最近更新</h2>
+            <p>按最后更新时间排序，展示已上架茶品。</p>
+          </div>
+        </div>
+        <div class="grid-tea" id="featured"></div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="container">
+        <div class="submit-card split" data-cat="green">
+          <div>
+            <p class="caption">识茶 B2 · 五维特征自查</p>
+            <h3 class="h3">拍照之后，用五个维度缩小范围</h3>
+            <p class="muted body-s mt-2">干茶形态、色泽、汤色、发酵度、香气。V1 不做 AI 判定，只做条件检索。</p>
+          </div>
+          <a class="btn btn-secondary" href="selfcheck.html">开始自查</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="site-footer"></div>
+
+  <script src="assets/js/data/categories.js"></script>
+  <script src="assets/js/data/teas.js"></script>
+  <script src="assets/js/data/comments.js"></script>
+  <script src="assets/js/core/config.js"></script>
+  <script src="assets/js/core/dom.js"></script>
+  <script src="assets/js/core/store.js"></script>
+  <script src="assets/js/core/ui.js"></script>
+  <script src="assets/js/pages/home.js"></script>
+</body>
+</html>

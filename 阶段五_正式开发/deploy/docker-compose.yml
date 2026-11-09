@@ -1,0 +1,99 @@
+services:
+  mysql:
+    # 生产与本地统一 MySQL 5.7，避免 8.0 专属语法（0900 排序规则 / CHECK 约束）暗中生效
+    image: mysql:5.7
+    container_name: mm-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MM_DB_ROOT_PASSWORD:-root_dev}
+      MYSQL_DATABASE: ${MM_DB_NAME:-mingmai}
+      MYSQL_USER: ${MM_DB_USER:-mingmai}
+      MYSQL_PASSWORD: ${MM_DB_PASSWORD:-mingmai_dev}
+      TZ: Asia/Shanghai
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-time-zone=+08:00
+    volumes:
+      - mysql-data:/var/lib/mysql
+      # 首次启动自动建表并顺序执行迁移；已存在数据卷时不会重复执行
+      - ../database/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - ../database/migration/V2__submission_license.sql:/docker-entrypoint-initdb.d/02-migration-v2.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-p${MM_DB_ROOT_PASSWORD:-root_dev}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    ports:
+      # 仅绑定回环：数据库不对公网暴露，宿主机备份/排查仍可直连
+      - "127.0.0.1:3306:3306"
+
+  redis:
+    image: redis:7-alpine
+    container_name: mm-redis
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    ports:
+      # 仅绑定回环：Redis 不对公网暴露
+      - "127.0.0.1:6379:6379"
+
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: mm-backend
+    environment:
+      MM_PROFILE: ${MM_PROFILE:-prod}
+      MM_DB_HOST: mysql
+      MM_DB_PORT: "3306"
+      MM_DB_NAME: ${MM_DB_NAME:-mingmai}
+      MM_DB_USER: ${MM_DB_USER:-mingmai}
+      MM_DB_PASSWORD: ${MM_DB_PASSWORD:-mingmai_dev}
+      MM_REDIS_URL: redis://redis:6379/0
+      MM_JWT_SECRET: ${MM_JWT_SECRET:?set MM_JWT_SECRET in .env}
+      MM_STORAGE_DIR: /data/mm/uploads
+      MM_WECHAT_MOCK: ${MM_WECHAT_MOCK:-false}
+      MM_WECHAT_APPID: ${MM_WECHAT_APPID:-}
+      MM_WECHAT_APP_SECRET: ${MM_WECHAT_APP_SECRET:-}
+    volumes:
+      - uploads:/data/mm/uploads
+      - logs:/app/logs
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8080/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    expose:
+      - "8080"
+
+  nginx:
+    build:
+      context: ..
+      dockerfile: deploy/nginx/Dockerfile
+    container_name: mm-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - uploads:/var/www/uploads:ro
+      # 证书只读挂载：deploy/certs/server.crt + server.key（私钥不入库）
+      - ../deploy/certs:/etc/nginx/certs:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  mysql-data:
+  redis-data:
+  uploads:
+  logs:

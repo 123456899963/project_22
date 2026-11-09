@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>图鉴浏览 · 茗脉</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<link rel="stylesheet" href="assets/css/pages.css">
+</head>
+<body id="page-root" data-cat="dark">
+<div id="site-header"></div>
+
+<main>
+  <section class="container">
+    <nav class="crumbs" aria-label="面包屑">
+      <a href="index.html">首页</a><span>/</span><span>图鉴浏览</span>
+    </nav>
+  </section>
+
+  <section class="container page-head">
+    <div class="page-head__row">
+      <div>
+        <h1 class="h1">图鉴浏览</h1>
+        <p class="page-head__desc">统一规格的实物图鉴：干茶、汤色、叶底按固定顺序呈现，并标注来源与版权。用户实拍单独成册。</p>
+      </div>
+      <a class="btn btn-primary" href="submit-fix.html?type=t3">补图投稿</a>
+    </div>
+    <div class="tabs mt-4" id="gallery-tabs">
+      <a href="gallery.html" data-tab="official" class="is-active">官方图鉴 <span class="tab-count" id="official-count"></span></a>
+      <a href="gallery.html?tab=user" data-tab="user">用户实拍 <span class="tab-count" id="user-count"></span></a>
+    </div>
+  </section>
+
+  <section class="container">
+    <div class="gallery-filter">
+      <div class="cat-bar" id="gallery-cats"></div>
+      <div class="chip-row mt-3" id="gallery-types"></div>
+    </div>
+
+    <div class="banner banner--info mt-4" id="user-note" hidden>
+      用户实拍需作者勾选书面授权、经编辑采纳后展示。图片仅代表拍摄者个人体验，不代表平台结论。
+    </div>
+
+    <p class="caption mt-4" id="gallery-summary"></p>
+    <div class="gallery-wall mt-3" id="gallery-wall"></div>
+    <div id="gallery-empty" class="hidden"></div>
+    <div class="load-more" id="gallery-more"></div>
+  </section>
+</main>
+
+<div id="lightbox" class="lightbox" hidden>
+  <button class="lightbox__close" id="lightbox-close" aria-label="关闭大图">×</button>
+  <img class="lightbox__img" id="lightbox-img" alt="">
+  <div class="lightbox__meta" id="lightbox-meta"></div>
+</div>
+
+<div id="site-footer"></div>
+
+<script src="assets/js/data/categories.js"></script>
+<script src="assets/js/data/teas.js"></script>
+<script src="assets/js/data/comments.js"></script>
+<script src="assets/js/data/mock-user.js"></script>
+<script src="assets/js/core/config.js"></script>
+<script src="assets/js/core/dom.js"></script>
+<script src="assets/js/core/store.js"></script>
+<script src="assets/js/core/ui.js"></script>
+<script src="assets/js/pages/gallery.js"></script>
+</body>
+</html>

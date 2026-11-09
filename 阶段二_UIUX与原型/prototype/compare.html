@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>茶品对比 · 茗脉</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<link rel="stylesheet" href="assets/css/pages.css">
+</head>
+<body id="page-root">
+<div id="site-header"></div>
+
+<main>
+  <section class="container">
+    <nav class="crumbs" aria-label="面包屑">
+      <a href="index.html">首页</a><span>/</span><span>茶品对比</span>
+    </nav>
+  </section>
+
+  <section class="container page-head">
+    <div class="page-head__row">
+      <div>
+        <h1 class="h1">茶品对比</h1>
+        <p class="page-head__desc">最多同时对比 3 款茶，按产地、年份、等级、冲泡参数与品质特征并排查看；缺失字段显示「暂无」。</p>
+      </div>
+      <button class="btn btn-primary" id="add-btn" type="button">添加茶品</button>
+    </div>
+  </section>
+
+  <section class="container">
+    <div class="compare-slots" id="compare-slots"></div>
+    <div id="compare-hint" class="mt-4"></div>
+    <div id="compare-table"></div>
+    <div class="compare-foot mt-5" id="compare-foot"></div>
+  </section>
+</main>
+
+<div class="modal-mask" id="add-modal" hidden>
+  <div class="modal">
+    <h3>添加对比茶品</h3>
+    <p class="caption mb-3">已选 <span id="modal-count">0</span>/3 款，最多 3 款</p>
+    <div class="search-box">
+      <input class="search-input" id="add-search" type="search" placeholder="搜索茶名、别名或拼音" aria-label="搜索茶品">
+    </div>
+    <div class="list add-list mt-3" id="add-list"></div>
+    <div class="modal__actions">
+      <button class="btn btn-secondary" id="add-close" type="button">关闭</button>
+    </div>
+  </div>
+</div>
+
+<div id="site-footer"></div>
+
+<script src="assets/js/data/categories.js"></script>
+<script src="assets/js/data/teas.js"></script>
+<script src="assets/js/data/comments.js"></script>
+<script src="assets/js/data/mock-user.js"></script>
+<script src="assets/js/core/config.js"></script>
+<script src="assets/js/core/dom.js"></script>
+<script src="assets/js/core/store.js"></script>
+<script src="assets/js/core/ui.js"></script>
+<script src="assets/js/pages/compare.js"></script>
+</body>
+</html>

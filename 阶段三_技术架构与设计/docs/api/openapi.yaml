@@ -1,0 +1,1780 @@
+openapi: 3.0.3
+info:
+  title: 茗脉 API
+  version: 1.0.0
+  description: |
+    V1 前后端与小程序共用接口契约。所有路径前缀 /api/v1。
+    成功响应统一为 {code, message, data, traceId}；分页数据为 {items, page, size, total, hasMore}。
+servers:
+  - url: /api/v1
+    description: 生产/测试同域反向代理
+tags:
+  - name: auth
+  - name: account
+  - name: catalog
+  - name: discovery
+  - name: gallery
+  - name: engagement
+  - name: submission
+  - name: governance
+  - name: message
+  - name: admin
+
+paths:
+  /auth/qrcode:
+    post:
+      tags: [auth]
+      summary: 生成登录二维码
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /auth/qrcode/{ticket}:
+    get:
+      tags: [auth]
+      summary: 轮询扫码状态
+      parameters:
+        - in: path
+          name: ticket
+          required: true
+          schema: {type: string}
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+  /auth/wechat/callback:
+    post:
+      tags: [auth]
+      summary: 微信授权回调，签发令牌
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, state]
+              properties:
+                code: {type: string}
+                state: {type: string}
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '502':
+          $ref: '#/components/responses/ServerError'
+  /auth/refresh:
+    post:
+      tags: [auth]
+      summary: 刷新 access token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken: {type: string}
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /auth/logout:
+    post:
+      tags: [auth]
+      summary: 注销当前会话
+      security: [{bearerAuth: []}]
+      responses:
+        '204':
+          description: 已注销
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /me/profile:
+    get:
+      tags: [account]
+      summary: 当前用户资料
+      security: [{bearerAuth: []}]
+      responses:
+        '200':
+          $ref: '#/components/responses/ProfileOk'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    patch:
+      tags: [account]
+      summary: 修改昵称/头像
+      security: [{bearerAuth: []}]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nickname: {type: string, minLength: 2, maxLength: 20}
+                avatarUrl: {type: string, format: uri}
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+  /me/overview:
+    get:
+      tags: [account]
+      summary: 个人中心计数聚合
+      security: [{bearerAuth: []}]
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+  /me/deletion:
+    post:
+      tags: [account]
+      summary: 申请注销（7 天冷静期）
+      security: [{bearerAuth: []}]
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '409':
+          $ref: '#/components/responses/Conflict'
+    delete:
+      tags: [account]
+      summary: 撤销注销申请
+      security: [{bearerAuth: []}]
+      responses:
+        '204':
+          description: 已撤销
+
+  /home:
+    get:
+      tags: [catalog]
+      summary: 首页聚合
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+  /categories:
+    get:
+      tags: [catalog]
+      summary: 茶类与亚类
+      responses:
+        '200':
+          $ref: '#/components/responses/CategoriesOk'
+  /categories/{code}:
+    get:
+      tags: [catalog]
+      summary: 单茶类详情
+      parameters:
+        - in: path
+          name: code
+          required: true
+          schema: {type: string}
+      responses:
+        '200':
+          $ref: '#/components/responses/CategoriesOk'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /teas:
+    get:
+      tags: [catalog]
+      summary: 茶品列表（8 维筛选）
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+        - in: query
+          name: category
+          schema: {type: string}
+        - in: query
+          name: subcategory
+          schema: {type: string}
+        - in: query
+          name: region
+          style: form
+          explode: true
+          schema: {type: array, items: {type: string}}
+        - in: query
+          name: ferment
+          style: form
+          explode: true
+          schema: {type: array, items: {type: string}}
+        - in: query
+          name: aroma
+          style: form
+          explode: true
+          schema: {type: array, items: {type: string}}
+        - in: query
+          name: season
+          style: form
+          explode: true
+          schema: {type: array, items: {type: string}}
+        - in: query
+          name: grade
+          style: form
+          explode: true
+          schema: {type: array, items: {type: string}}
+        - in: query
+          name: year
+          style: form
+          explode: true
+          schema: {type: array, items: {type: integer}}
+        - in: query
+          name: sort
+          schema:
+            type: string
+            enum: [updated_desc, name_pinyin, grade_desc]
+            default: updated_desc
+      responses:
+        '200':
+          $ref: '#/components/responses/TeaPageOk'
+  /teas/compare:
+    get:
+      tags: [catalog]
+      summary: 茶品对照数据（2～3 款）
+      security: [{bearerAuth: []}]
+      parameters:
+        - in: query
+          name: ids
+          required: true
+          schema:
+            type: array
+            minItems: 2
+            maxItems: 3
+            items: {type: integer, format: int64}
+          style: form
+          explode: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /teas/{id}:
+    get:
+      tags: [catalog]
+      summary: 茶品详情
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: {type: integer, format: int64}
+      responses:
+        '200':
+          $ref: '#/components/responses/TeaDetailOk'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /search:
+    get:
+      tags: [discovery]
+      summary: 关键词检索
+      parameters:
+        - in: query
+          name: q
+          required: true
+          schema: {type: string, maxLength: 50}
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          $ref: '#/components/responses/TeaPageOk'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+  /identify/options:
+    get:
+      tags: [discovery]
+      summary: 五维标签选项
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+  /identify/results:
+    post:
+      tags: [discovery]
+      summary: 五维自查候选
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                shape: {type: array, items: {type: string}}
+                color: {type: array, items: {type: string}}
+                soup: {type: array, items: {type: string}}
+                ferment: {type: array, items: {type: string}}
+                aroma: {type: array, items: {type: string}}
+                page: {type: integer, default: 1}
+                size: {type: integer, default: 12}
+      responses:
+        '200':
+          $ref: '#/components/responses/TeaPageOk'
+
+  /gallery:
+    get:
+      tags: [gallery]
+      summary: 图鉴/用户实拍
+      parameters:
+        - in: query
+          name: tab
+          schema:
+            type: string
+            enum: [official, user]
+            default: official
+        - in: query
+          name: category
+          schema: {type: string}
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+  /pages/about:
+    get:
+      tags: [catalog]
+      summary: 关于与协议
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+
+  /me/favorites:
+    get:
+      tags: [engagement]
+      summary: 收藏列表
+      security: [{bearerAuth: []}]
+      parameters:
+        - in: query
+          name: group
+          schema:
+            type: string
+            enum: [want, drank]
+            default: want
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          $ref: '#/components/responses/TeaPageOk'
+    post:
+      tags: [engagement]
+      summary: 收藏茶品
+      security: [{bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [teaId]
+              properties:
+                teaId: {type: integer, format: int64}
+      responses:
+        '201':
+          $ref: '#/components/responses/Ok'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /me/favorites/{teaId}:
+    patch:
+      tags: [engagement]
+      summary: 移动收藏分组
+      security: [{bearerAuth: []}]
+      parameters:
+        - in: path
+          name: teaId
+          required: true
+          schema: {type: integer, format: int64}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [group]
+              properties:
+                group: {type: string, enum: [want, drank]}
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+    delete:
+      tags: [engagement]
+      summary: 取消收藏
+      security: [{bearerAuth: []}]
+      parameters:
+        - in: path
+          name: teaId
+          required: true
+          schema: {type: integer, format: int64}
+      responses:
+        '204':
+          description: 已取消
+
+  /me/history:
+    get:
+      tags: [engagement]
+      summary: 浏览历史
+      security: [{bearerAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+    post:
+      tags: [engagement]
+      summary: 记录浏览
+      security: [{bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [teaId]
+              properties:
+                teaId: {type: integer, format: int64}
+      responses:
+        '204':
+          description: 已记录
+    delete:
+      tags: [engagement]
+      summary: 清空历史
+      security: [{bearerAuth: []}]
+      responses:
+        '204':
+          description: 已清空
+
+  /me/compare:
+    get:
+      tags: [engagement]
+      summary: 对比篮
+      security: [{bearerAuth: []}]
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+    post:
+      tags: [engagement]
+      summary: 加入对比
+      security: [{bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [teaId]
+              properties:
+                teaId: {type: integer, format: int64}
+      responses:
+        '201':
+          $ref: '#/components/responses/Ok'
+        '409':
+          $ref: '#/components/responses/Conflict'
+    delete:
+      tags: [engagement]
+      summary: 移除或清空对比
+      security: [{bearerAuth: []}]
+      parameters:
+        - in: query
+          name: teaId
+          schema: {type: integer, format: int64}
+      responses:
+        '204':
+          description: 已移除
+
+  /teas/{teaId}/comments:
+    get:
+      tags: [engagement]
+      summary: 茶品评论
+      parameters:
+        - in: path
+          name: teaId
+          required: true
+          schema: {type: integer, format: int64}
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+    post:
+      tags: [engagement]
+      summary: 发布评论（先审后发）
+      security: [{bearerAuth: []}]
+      parameters:
+        - in: path
+          name: teaId
+          required: true
+          schema: {type: integer, format: int64}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content]
+              properties:
+                content: {type: string, minLength: 1, maxLength: 200}
+                imageId: {type: integer, format: int64}
+      responses:
+        '201':
+          $ref: '#/components/responses/Ok'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /me/comments/{id}:
+    delete:
+      tags: [engagement]
+      summary: 删除自己的评论
+      security: [{bearerAuth: []}]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: {type: integer, format: int64}
+      responses:
+        '204':
+          description: 已删除
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /comments/{id}/like:
+    post:
+      tags: [engagement]
+      summary: 点赞
+      security: [{bearerAuth: []}]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: {type: integer, format: int64}
+      responses:
+        '201':
+          $ref: '#/components/responses/Ok'
+    delete:
+      tags: [engagement]
+      summary: 取消点赞
+      security: [{bearerAuth: []}]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: {type: integer, format: int64}
+      responses:
+        '204':
+          description: 已取消
+
+  /me/submissions:
+    get:
+      tags: [submission]
+      summary: 我的投稿
+      security: [{bearerAuth: []}]
+      parameters:
+        - in: query
+          name: type
+          schema: {type: string, enum: [T1, T3, T4]}
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [draft, pending, approved, rejected, locked, revised]
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+    post:
+      tags: [submission]
+      summary: 新建草稿
+      security: [{bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmissionInput'
+      responses:
+        '201':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+  /me/submissions/{id}:
+    get:
+      tags: [submission]
+      summary: 投稿详情
+      security: [{bearerAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    patch:
+      tags: [submission]
+      summary: 修改草稿
+      security: [{bearerAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmissionInput'
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '409':
+          $ref: '#/components/responses/Conflict'
+    delete:
+      tags: [submission]
+      summary: 删除草稿
+      security: [{bearerAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '204':
+          description: 已删除
+  /me/submissions/{id}/submit:
+    post:
+      tags: [submission]
+      summary: 提交审核
+      security: [{bearerAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /me/submissions/{id}/resubmit:
+    post:
+      tags: [submission]
+      summary: 驳回后重提
+      security: [{bearerAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /me/submissions/{id}/preview:
+    get:
+      tags: [submission]
+      summary: 草稿/审核中预览
+      security: [{bearerAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+
+  /reports:
+    post:
+      tags: [governance]
+      summary: 提交举报
+      security: [{bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [objectType, objectId, reportType, description]
+              properties:
+                objectType: {type: string, enum: [image, comment, user_shot]}
+                objectId: {type: integer, format: int64}
+                teaId: {type: integer, format: int64}
+                reportType: {type: string}
+                description: {type: string, maxLength: 1000}
+                evidence:
+                  type: array
+                  items: {type: string, description: 已上传图片 URL}
+      responses:
+        '201':
+          $ref: '#/components/responses/Ok'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /reports/{id}/appeal:
+    post:
+      tags: [governance]
+      summary: 申诉（每案 1 次）
+      security: [{bearerAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: {type: string, maxLength: 1000}
+      responses:
+        '201':
+          $ref: '#/components/responses/Ok'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /me/messages:
+    get:
+      tags: [message]
+      summary: 消息列表
+      security: [{bearerAuth: []}]
+      parameters:
+        - in: query
+          name: type
+          schema: {type: string, enum: [review, correction, report, system]}
+        - in: query
+          name: unreadOnly
+          schema: {type: boolean, default: false}
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+  /me/messages/{id}/read:
+    patch:
+      tags: [message]
+      summary: 单条已读
+      security: [{bearerAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '204':
+          description: 已读
+  /me/messages/read-all:
+    patch:
+      tags: [message]
+      summary: 全部已读
+      security: [{bearerAuth: []}]
+      responses:
+        '204':
+          description: 已读
+
+  /admin/dashboard:
+    get:
+      tags: [admin]
+      summary: 工作台概览
+      security: [{bearerAuth: []}]
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /admin/admins:
+    get:
+      tags: [admin]
+      summary: 管理员白名单（仅超管）
+      security: [{bearerAuth: []}]
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+    post:
+      tags: [admin]
+      summary: 新增白名单（仅超管）
+      security: [{bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [openid, role]
+              properties:
+                openid: {type: string, maxLength: 64}
+                role: {type: string, enum: [admin, super]}
+                note: {type: string, maxLength: 200}
+      responses:
+        '201':
+          $ref: '#/components/responses/Ok'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /admin/admins/{id}:
+    delete:
+      tags: [admin]
+      summary: 移除白名单（仅超管）
+      security: [{bearerAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '204':
+          description: 已移除
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /admin/teas:
+    get:
+      tags: [admin]
+      summary: 茶品管理列表
+      security: [{bearerAuth: []}]
+      parameters:
+        - in: query
+          name: status
+          schema: {type: string}
+        - in: query
+          name: category
+          schema: {type: string}
+        - in: query
+          name: keyword
+          schema: {type: string}
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+    post:
+      tags: [admin]
+      summary: 新建茶品草稿
+      security: [{bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TeaInput'
+      responses:
+        '201':
+          $ref: '#/components/responses/Ok'
+  /admin/teas/{id}:
+    get:
+      tags: [admin]
+      summary: 茶品编辑详情
+      security: [{bearerAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          $ref: '#/components/responses/TeaDetailOk'
+    patch:
+      tags: [admin]
+      summary: 保存草稿（乐观锁）
+      security: [{bearerAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/TeaInput'
+                - type: object
+                  required: [version]
+                  properties:
+                    version: {type: integer}
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /admin/teas/{id}/submit:
+    post:
+      tags: [admin]
+      summary: 提交审核
+      security: [{bearerAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+  /admin/teas/{id}/review:
+    post:
+      tags: [admin]
+      summary: 审核通过/驳回
+      security: [{bearerAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewInput'
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /admin/teas/{id}/unpublish:
+    post:
+      tags: [admin]
+      summary: 下架
+      security: [{bearerAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: {type: string, minLength: 1, maxLength: 200}
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+  /admin/teas/{id}/publish:
+    post:
+      tags: [admin]
+      summary: 恢复上架
+      security: [{bearerAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: {type: string, minLength: 1, maxLength: 200}
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+
+  /admin/categories:
+    get:
+      tags: [admin]
+      summary: 分类与亚类
+      security: [{bearerAuth: []}]
+      responses:
+        '200':
+          $ref: '#/components/responses/CategoriesOk'
+  /admin/categories/{subcategoryId}:
+    patch:
+      tags: [admin]
+      summary: 切换内容建设状态
+      security: [{bearerAuth: []}]
+      parameters:
+        - in: path
+          name: subcategoryId
+          required: true
+          schema: {type: integer, format: int64}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [contentStatus]
+              properties:
+                contentStatus: {type: string, enum: [normal, constructing]}
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+
+  /admin/tags:
+    get:
+      tags: [admin]
+      summary: 标签库
+      security: [{bearerAuth: []}]
+      parameters:
+        - in: query
+          name: dimension
+          schema: {type: string}
+        - in: query
+          name: status
+          schema: {type: string, enum: [enabled, disabled]}
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+    post:
+      tags: [admin]
+      summary: 新增标签
+      security: [{bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [dimension, name]
+              properties:
+                dimension: {type: string, enum: [shape, color, soup, ferment, aroma]}
+                name: {type: string, maxLength: 32}
+      responses:
+        '201':
+          $ref: '#/components/responses/Ok'
+  /admin/tags/{id}:
+    patch:
+      tags: [admin]
+      summary: 启用/停用标签
+      security: [{bearerAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: {type: string, enum: [enabled, disabled]}
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+  /admin/tag-requests:
+    get:
+      tags: [admin]
+      summary: 标签新增申请
+      security: [{bearerAuth: []}]
+      parameters:
+        - in: query
+          name: status
+          schema: {type: string, enum: [pending, approved, rejected]}
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+  /admin/tag-requests/{id}/review:
+    post:
+      tags: [admin]
+      summary: 审核标签申请
+      security: [{bearerAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewInput'
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+
+  /admin/teas/{id}/media:
+    get:
+      tags: [admin]
+      summary: 茶品图片与授权
+      security: [{bearerAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+  /admin/media:
+    post:
+      tags: [admin]
+      summary: 上传图片
+      security: [{bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [teaId, imageType, seq, sourceType, file]
+              properties:
+                teaId: {type: integer, format: int64}
+                imageType: {type: string, enum: [dry, soup, leaf, pack, detail]}
+                seq: {type: integer, minimum: 1, maximum: 5}
+                sourceType: {type: string, enum: [self, agency, stock, user]}
+                rightsHolder: {type: string}
+                licenseScope: {type: string}
+                licenseExpire: {type: string, format: date}
+                licenseCertNo: {type: string}
+                file: {type: string, format: binary}
+      responses:
+        '201':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+  /admin/media/{id}:
+    delete:
+      tags: [admin]
+      summary: 删除图片
+      security: [{bearerAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '204':
+          description: 已删除
+
+  /admin/submissions:
+    get:
+      tags: [admin]
+      summary: 投稿审核队列
+      security: [{bearerAuth: []}]
+      parameters:
+        - in: query
+          name: type
+          schema: {type: string, enum: [T1, T3, T4]}
+        - in: query
+          name: status
+          schema: {type: string}
+        - in: query
+          name: overdue
+          schema: {type: boolean}
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+  /admin/submissions/{id}:
+    get:
+      tags: [admin]
+      summary: 投稿审核详情
+      security: [{bearerAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+  /admin/submissions/{id}/review:
+    post:
+      tags: [admin]
+      summary: 审核投稿
+      security: [{bearerAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewInput'
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /admin/comments:
+    get:
+      tags: [admin]
+      summary: 评论审核队列
+      security: [{bearerAuth: []}]
+      parameters:
+        - in: query
+          name: status
+          schema: {type: string, enum: [pending, published, rejected, deleted]}
+        - in: query
+          name: overdue
+          schema: {type: boolean}
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+  /admin/comments/{id}/review:
+    post:
+      tags: [admin]
+      summary: 审核评论
+      security: [{bearerAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewInput'
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+
+  /admin/reports:
+    get:
+      tags: [admin]
+      summary: 举报列表
+      security: [{bearerAuth: []}]
+      parameters:
+        - in: query
+          name: status
+          schema: {type: string}
+        - in: query
+          name: objectType
+          schema: {type: string, enum: [image, comment, user_shot]}
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+  /admin/reports/{id}:
+    get:
+      tags: [admin]
+      summary: 举报详情
+      security: [{bearerAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+  /admin/reports/{id}/handle:
+    post:
+      tags: [admin]
+      summary: 处理举报
+      security: [{bearerAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [decision, resultNote]
+              properties:
+                decision: {type: string, enum: [valid, invalid]}
+                resultNote: {type: string, maxLength: 300}
+                action: {type: string, enum: [unpublish, delete, warn, none]}
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /admin/appeals/{id}/review:
+    post:
+      tags: [admin]
+      summary: 申诉复核（仅超管）
+      security: [{bearerAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [decision, note]
+              properties:
+                decision: {type: string, enum: [uphold, overturn]}
+                note: {type: string, maxLength: 300}
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/users:
+    get:
+      tags: [admin]
+      summary: 用户管理
+      security: [{bearerAuth: []}]
+      parameters:
+        - in: query
+          name: keyword
+          schema: {type: string}
+        - in: query
+          name: sanctionStatus
+          schema: {type: string, enum: [none, mute, ban]}
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+  /admin/users/{id}/sanctions:
+    post:
+      tags: [admin]
+      summary: 禁言/封禁
+      security: [{bearerAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [type, reason]
+              properties:
+                type: {type: string, enum: [mute, ban]}
+                reason: {type: string, maxLength: 300}
+                endAt: {type: string, format: date-time}
+      responses:
+        '201':
+          $ref: '#/components/responses/Ok'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /admin/users/{id}/sanctions/{sid}/revoke:
+    post:
+      tags: [admin]
+      summary: 解除处罚
+      security: [{bearerAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - in: path
+          name: sid
+          required: true
+          schema: {type: integer, format: int64}
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+
+  /admin/audit-logs:
+    get:
+      tags: [admin]
+      summary: 审计日志
+      security: [{bearerAuth: []}]
+      parameters:
+        - in: query
+          name: operator
+          schema: {type: string}
+        - in: query
+          name: action
+          schema: {type: string}
+        - in: query
+          name: from
+          schema: {type: string, format: date}
+        - in: query
+          name: to
+          schema: {type: string, format: date}
+        - in: query
+          name: export
+          schema: {type: boolean, default: false}
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/imports/template:
+    get:
+      tags: [admin]
+      summary: 下载导入模板
+      security: [{bearerAuth: []}]
+      responses:
+        '200':
+          description: xlsx 文件
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema: {type: string, format: binary}
+  /admin/imports:
+    post:
+      tags: [admin]
+      summary: 上传导入文件
+      security: [{bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: {type: string, format: binary}
+      responses:
+        '201':
+          $ref: '#/components/responses/Ok'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+  /admin/imports/{id}:
+    get:
+      tags: [admin]
+      summary: 导入任务状态
+      security: [{bearerAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+  /admin/imports/{id}/errors:
+    get:
+      tags: [admin]
+      summary: 导入错误行
+      security: [{bearerAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+  /admin/imports/{id}/confirm:
+    post:
+      tags: [admin]
+      summary: 确认导入
+      security: [{bearerAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /admin/settings:
+    get:
+      tags: [admin]
+      summary: 系统配置
+      security: [{bearerAuth: []}]
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+    patch:
+      tags: [admin]
+      summary: 更新配置（仅超管）
+      security: [{bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                items:
+                  type: array
+                  items:
+                    type: object
+                    required: [key, value]
+                    properties:
+                      key: {type: string}
+                      value: {type: string}
+      responses:
+        '200':
+          $ref: '#/components/responses/Ok'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    Id:
+      in: path
+      name: id
+      required: true
+      schema: {type: integer, format: int64}
+    Page:
+      in: query
+      name: page
+      schema: {type: integer, minimum: 1, default: 1}
+    Size:
+      in: query
+      name: size
+      schema: {type: integer, minimum: 1, maximum: 50, default: 12}
+
+  responses:
+    Ok:
+      description: 成功
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiEnvelope'
+    ProfileOk:
+      description: 当前用户资料
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/ApiEnvelope'
+              - type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Profile'
+    CategoriesOk:
+      description: 茶类列表
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/ApiEnvelope'
+              - type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Category'
+    TeaPageOk:
+      description: 茶品分页
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/ApiEnvelope'
+              - type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/TeaPage'
+    TeaDetailOk:
+      description: 茶品详情
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/ApiEnvelope'
+              - type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/TeaDetail'
+    BadRequest:
+      description: 参数错误
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Unauthorized:
+      description: 未登录或令牌失效
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Forbidden:
+      description: 无权限或账号受限
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    NotFound:
+      description: 不存在或已下架
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Conflict:
+      description: 状态冲突
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    RateLimited:
+      description: 触发限流
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    PayloadTooLarge:
+      description: 文件超过 5MB
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    ServerError:
+      description: 服务异常
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+
+  schemas:
+    ApiEnvelope:
+      type: object
+      required: [code, message]
+      properties:
+        code: {type: string, example: OK}
+        message: {type: string, example: success}
+        traceId: {type: string}
+        data: {}
+    ApiError:
+      type: object
+      required: [code, message]
+      properties:
+        code: {type: string, example: MM-AUTH-001}
+        message: {type: string}
+        traceId: {type: string}
+        details:
+          type: array
+          items:
+            type: object
+            properties:
+              field: {type: string}
+              reason: {type: string}
+    PageMeta:
+      type: object
+      properties:
+        page: {type: integer}
+        size: {type: integer}
+        total: {type: integer, format: int64}
+        hasMore: {type: boolean}
+    Profile:
+      type: object
+      properties:
+        id: {type: integer, format: int64}
+        nickname: {type: string}
+        avatarUrl: {type: string}
+        role: {type: string, enum: [user, admin, super]}
+        status: {type: string, enum: [active, deleting, deleted]}
+    Category:
+      type: object
+      properties:
+        id: {type: integer, format: int64}
+        code: {type: string}
+        name: {type: string}
+        intro: {type: string}
+        teaCount: {type: integer}
+        subcategories:
+          type: array
+          items:
+            type: object
+            properties:
+              id: {type: integer, format: int64}
+              code: {type: string}
+              name: {type: string}
+              teaCount: {type: integer}
+              contentStatus: {type: string, enum: [normal, constructing]}
+    TeaSummary:
+      type: object
+      required: [id, name]
+      properties:
+        id: {type: integer, format: int64}
+        name: {type: string}
+        alias: {type: string}
+        categoryCode: {type: string}
+        subcategoryCode: {type: string}
+        grades:
+          type: array
+          items: {type: string}
+        productionYear: {type: integer, nullable: true}
+        yearBand: {type: string, enum: [新茶, 中期茶, 老茶], nullable: true}
+        tags:
+          type: array
+          items: {type: string}
+        thumbUrl: {type: string}
+        lastUpdateAt: {type: string, format: date-time}
+    TeaPage:
+      allOf:
+        - $ref: '#/components/schemas/PageMeta'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/TeaSummary'
+    TeaDetail:
+      allOf:
+        - $ref: '#/components/schemas/TeaSummary'
+        - type: object
+          properties:
+            aliases:
+              type: array
+              items: {type: string}
+            extraSubcategories:
+              type: array
+              items: {type: string}
+            origin:
+              type: object
+              properties:
+                primary:
+                  type: array
+                  items: {type: string}
+                secondary:
+                  type: array
+                  items: {type: string}
+            quality:
+              type: object
+              properties:
+                tags:
+                  type: array
+                  items: {type: string}
+                description: {type: string}
+            brewing:
+              type: object
+              properties:
+                waterTempMin: {type: integer}
+                waterTempMax: {type: integer}
+                ratioGrams: {type: number}
+                ratioWaterMl: {type: integer}
+                vessel: {type: string}
+                steepSecondsMin: {type: integer}
+                steepSecondsMax: {type: integer}
+                steepTimes: {type: integer}
+            harvestPeriods:
+              type: array
+              items:
+                type: object
+                properties:
+                  label: {type: string}
+                  startMonth: {type: integer}
+                  endMonth: {type: integer}
+            standards:
+              type: array
+              items: {type: string}
+            images:
+              type: array
+              items:
+                type: object
+                properties:
+                  id: {type: integer, format: int64}
+                  type: {type: string}
+                  seq: {type: integer}
+                  url: {type: string}
+                  thumbUrl: {type: string}
+                  licenseLabel: {type: string}
+            commentCount: {type: integer}
+            publishedVersion: {type: integer}
+    SubmissionInput:
+      type: object
+      required: [type]
+      properties:
+        type: {type: string, enum: [T1, T3, T4]}
+        teaId: {type: integer, format: int64}
+        title: {type: string, maxLength: 120}
+        body: {type: string}
+        anonymous: {type: boolean}
+        images:
+          type: array
+          maxItems: 5
+          items: {type: integer, format: int64}
+        licenseGranted: {type: boolean}
+        correctionFieldKey: {type: string}
+        newValue: {type: string}
+        reason: {type: string}
+    ReviewInput:
+      type: object
+      required: [decision]
+      properties:
+        decision: {type: string, enum: [approve, reject]}
+        reason: {type: string, maxLength: 300}
+        version: {type: integer}
+    TeaInput:
+      type: object
+      properties:
+        teaCode: {type: string}
+        name: {type: string}
+        aliases:
+          type: array
+          items: {type: string}
+        categoryCode: {type: string}
+        subcategoryCode: {type: string}
+        extraSubcategoryCodes:
+          type: array
+          items: {type: string}
+        originSummary: {type: string}
+        regions:
+          type: array
+          items:
+            type: object
+            properties:
+              name: {type: string}
+              type: {type: string, enum: [primary, secondary]}
+              flavorNote: {type: string}
+        qualityTags:
+          type: array
+          items: {type: integer, format: int64}
+        qualityDescription: {type: string}
+        grades:
+          type: array
+          items: {type: string, enum: [特级, 一级, 二级]}
+        waterTempMin: {type: integer}
+        waterTempMax: {type: integer}
+        ratioGrams: {type: number}
+        ratioWaterMl: {type: integer}
+        vessel: {type: string}
+        steepSecondsMin: {type: integer}
+        steepSecondsMax: {type: integer}
+        steepTimes: {type: integer}
+        productionYear: {type: integer, nullable: true}
+        harvestPeriods:
+          type: array
+          items:
+            type: object
+            properties:
+              startMonth: {type: integer}
+              endMonth: {type: integer}
+              seasonLabel: {type: string}
+        standards:
+          type: array
+          items:
+            type: object
+            properties:
+              standardNo: {type: string}
+              standardType: {type: string}

@@ -1,0 +1,99 @@
+/* 茗脉 · 设计 Token（对齐 docs/design/DESIGN_SYSTEM.md） */
+:root {
+  /* 中性色 */
+  --ink-900: #1a1815;
+  --ink-700: #4a4640;
+  --ink-500: #7c766c;
+  --line-300: #c9c3b6;
+  --line-200: #e4ded2;
+  --surface-100: #f2eee6;
+  --surface-050: #faf7f0;
+  --tea-900: #1b2e2a;
+  --white: #ffffff;
+
+  /* 六类茶色谱 */
+  --tea-green: #6f9b4e;
+  --tea-green-soft: #eef3e4;
+  --tea-green-deep: #3f5c2a;
+  --tea-white: #b9b3a0;
+  --tea-white-soft: #f3f1ea;
+  --tea-white-deep: #6b6659;
+  --tea-yellow: #d9a93b;
+  --tea-yellow-soft: #fbf1dc;
+  --tea-yellow-deep: #8a6414;
+  --tea-oolong: #3e7c76;
+  --tea-oolong-soft: #e6f0ee;
+  --tea-oolong-deep: #24504b;
+  --tea-red: #b34a33;
+  --tea-red-soft: #f7e7e2;
+  --tea-red-deep: #7a2c1c;
+  --tea-dark: #5b3a2c;
+  --tea-dark-soft: #efe7e2;
+  --tea-dark-deep: #3b241a;
+
+  /* 语义色 */
+  --success: #3f7d4e;
+  --success-soft: #e8f1e6;
+  --warning: #c98a2e;
+  --warning-soft: #fbf1dc;
+  --danger: #b23a2f;
+  --danger-soft: #f7e7e2;
+  --info: #2f6b7c;
+  --info-soft: #e7f0f2;
+  --neutral: #7c766c;
+  --neutral-soft: #f2eee6;
+
+  /* 字体 */
+  --font-serif: "Noto Serif SC", "Songti SC", "SimSun", serif;
+  --font-sans: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+
+  /* 字号 / 行高 */
+  --text-display: 48px/56px;
+  --text-h1: 36px/44px;
+  --text-h2: 28px/36px;
+  --text-h3: 22px/30px;
+  --text-body-l: 18px/30px;
+  --text-body: 16px/26px;
+  --text-body-s: 14px/22px;
+  --text-caption: 12px/18px;
+
+  /* 间距 */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+  --space-9: 96px;
+
+  /* 圆角 */
+  --radius-sm: 4px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-pill: 999px;
+
+  /* 阴影 */
+  --shadow-sm: 0 1px 2px rgba(26, 24, 21, 0.06);
+  --shadow-md: 0 4px 12px rgba(26, 24, 21, 0.1);
+  --shadow-lg: 0 12px 32px rgba(26, 24, 21, 0.16);
+
+  /* 层级 */
+  --z-sticky: 100;
+  --z-dropdown: 200;
+  --z-mask: 300;
+  --z-modal: 400;
+  --z-toast: 500;
+
+  --container: 1200px;
+  --header-h: 64px;
+}
+
+/* 茶类上下文：页面或卡片设置 data-cat 后自动取色 */
+[data-cat="green"] { --cat: var(--tea-green); --cat-soft: var(--tea-green-soft); --cat-deep: var(--tea-green-deep); }
+[data-cat="white"] { --cat: var(--tea-white); --cat-soft: var(--tea-white-soft); --cat-deep: var(--tea-white-deep); }
+[data-cat="yellow"] { --cat: var(--tea-yellow); --cat-soft: var(--tea-yellow-soft); --cat-deep: var(--tea-yellow-deep); }
+[data-cat="oolong"] { --cat: var(--tea-oolong); --cat-soft: var(--tea-oolong-soft); --cat-deep: var(--tea-oolong-deep); }
+[data-cat="red"] { --cat: var(--tea-red); --cat-soft: var(--tea-red-soft); --cat-deep: var(--tea-red-deep); }
+[data-cat="dark"] { --cat: var(--tea-dark); --cat-soft: var(--tea-dark-soft); --cat-deep: var(--tea-dark-deep); }

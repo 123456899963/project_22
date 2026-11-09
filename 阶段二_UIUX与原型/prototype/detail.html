@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>茶品详情 · 茗脉</title>
+  <link rel="stylesheet" href="assets/css/tokens.css">
+  <link rel="stylesheet" href="assets/css/base.css">
+  <link rel="stylesheet" href="assets/css/components.css">
+  <link rel="stylesheet" href="assets/css/pages.css">
+</head>
+<body data-cat="green" id="page-root">
+  <div id="site-header"></div>
+
+  <main>
+    <section class="container detail-hero" id="detail-hero">
+      <div class="detail-hero__grid">
+        <div id="gallery-wrap"></div>
+        <div id="detail-head"></div>
+      </div>
+    </section>
+
+    <nav class="anchor-nav" id="anchor-nav" aria-label="页内导航">
+      <div class="container anchor-nav__inner" id="anchor-inner"></div>
+    </nav>
+
+    <article class="container" id="detail-sections"></article>
+  </main>
+
+  <div id="site-footer"></div>
+
+  <div class="lightbox" id="lightbox" hidden>
+    <button class="lightbox__close" id="lightbox-close" aria-label="关闭大图">×</button>
+    <button class="lightbox__nav lightbox__nav--prev" id="lightbox-prev" aria-label="上一张">‹</button>
+    <button class="lightbox__nav lightbox__nav--next" id="lightbox-next" aria-label="下一张">›</button>
+    <img class="lightbox__img" id="lightbox-img" alt="">
+    <div class="lightbox__meta" id="lightbox-meta"></div>
+  </div>
+
+  <script src="assets/js/data/categories.js"></script>
+  <script src="assets/js/data/teas.js"></script>
+  <script src="assets/js/data/comments.js"></script>
+  <script src="assets/js/data/mock-user.js"></script>
+  <script src="assets/js/core/config.js"></script>
+  <script src="assets/js/core/dom.js"></script>
+  <script src="assets/js/core/store.js"></script>
+  <script src="assets/js/core/ui.js"></script>
+  <script src="assets/js/pages/detail.js"></script>
+</body>
+</html>

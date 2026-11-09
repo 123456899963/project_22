@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>站内消息 · 茗脉</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<link rel="stylesheet" href="assets/css/pages.css">
+</head>
+<body id="page-root">
+<div id="site-header"></div>
+
+<main>
+  <section class="container">
+    <nav class="crumbs" aria-label="面包屑">
+      <a href="index.html">首页</a><span>/</span><a href="profile.html">个人中心</a><span>/</span><span>站内消息</span>
+    </nav>
+  </section>
+
+  <section class="container page-head">
+    <div class="page-head__row">
+      <div>
+        <h1 class="h1">站内消息</h1>
+        <p class="page-head__desc">审核结果、纠错结果、投诉结果与系统通知。消息保留 180 天后自动清理，不可手动删除。</p>
+      </div>
+      <div>
+        <button class="btn btn-secondary" id="read-all" type="button">全部标为已读</button>
+        <p class="caption mt-2" id="unread-count"></p>
+      </div>
+    </div>
+    <div class="tabs mt-4" id="msg-tabs">
+      <button type="button" data-tab="all" class="is-active">全部 <span class="tab-count"></span></button>
+      <button type="button" data-tab="audit">审核</button>
+      <button type="button" data-tab="correction">纠错</button>
+      <button type="button" data-tab="report">投诉</button>
+      <button type="button" data-tab="system">系统</button>
+    </div>
+  </section>
+
+  <section class="container">
+    <div class="list" id="msg-list"></div>
+    <div id="msg-empty" class="hidden"></div>
+  </section>
+</main>
+
+<div id="site-footer"></div>
+
+<script src="assets/js/data/categories.js"></script>
+<script src="assets/js/data/teas.js"></script>
+<script src="assets/js/data/comments.js"></script>
+<script src="assets/js/data/mock-user.js"></script>
+<script src="assets/js/core/config.js"></script>
+<script src="assets/js/core/dom.js"></script>
+<script src="assets/js/core/store.js"></script>
+<script src="assets/js/core/ui.js"></script>
+<script src="assets/js/pages/messages.js"></script>
+</body>
+</html>

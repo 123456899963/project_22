@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>茶类浏览 · 茗脉</title>
+  <link rel="stylesheet" href="assets/css/tokens.css">
+  <link rel="stylesheet" href="assets/css/base.css">
+  <link rel="stylesheet" href="assets/css/components.css">
+  <link rel="stylesheet" href="assets/css/pages.css">
+</head>
+<body data-cat="green" id="page-root">
+  <div id="site-header"></div>
+
+  <main>
+    <section class="container">
+      <nav class="crumbs" aria-label="面包屑">
+        <a href="index.html">首页</a><span>/</span><a href="category.html?type=green">茶类</a>
+        <span>/</span><span id="crumb-sub">全部</span>
+      </nav>
+    </section>
+
+    <section class="container category-head">
+      <div class="category-head__title">
+        <h1 class="h1" id="cat-title">绿茶</h1>
+        <span id="cat-en" class="caption"></span>
+      </div>
+      <p class="category-head__text" id="cat-intro"></p>
+    </section>
+
+    <section class="container">
+      <div class="cat-bar" id="cat-bar"></div>
+      <div class="sub-bar" id="sub-bar"></div>
+
+      <div class="filter-panel" id="filter-panel">
+        <div class="filter-panel__head">
+          <h2 class="h3">筛选</h2>
+          <button class="btn-link" id="filter-toggle" type="button">展开更多</button>
+        </div>
+        <div id="filter-rows"></div>
+      </div>
+
+      <div class="filter-chips" id="filter-chips"></div>
+
+      <div class="toolbar">
+        <div class="toolbar__left">
+          <span class="toolbar__count" id="result-count"></span>
+          <button class="btn btn-secondary btn-sm filter-mobile-btn" id="filter-mobile-btn" type="button">筛选</button>
+        </div>
+        <div class="toolbar__right">
+          <label class="caption" for="sort">排序</label>
+          <select class="sort-select" id="sort">
+            <option value="default">最新更新（默认）</option>
+            <option value="pinyin">名称拼音</option>
+            <option value="grade">等级（特级→未分档）</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="grid-tea mt-4" id="tea-grid"></div>
+      <div id="list-empty" class="hidden"></div>
+      <div class="load-more" id="load-more"></div>
+    </section>
+
+    <div class="filter-drawer" id="filter-drawer" aria-hidden="true">
+      <div class="filter-drawer__mask" data-drawer-close></div>
+      <aside class="filter-drawer__panel">
+        <div class="filter-drawer__head"><h3>筛选条件</h3><button class="btn btn-ghost btn-sm" data-drawer-close>关闭</button></div>
+        <div class="filter-drawer__body" id="filter-drawer-body"></div>
+        <div class="filter-drawer__foot">
+          <button class="btn btn-secondary" id="drawer-reset" type="button">重置</button>
+          <button class="btn btn-primary" id="drawer-apply" type="button">查看结果</button>
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <div id="site-footer"></div>
+
+  <script src="assets/js/data/categories.js"></script>
+  <script src="assets/js/data/teas.js"></script>
+  <script src="assets/js/data/comments.js"></script>
+  <script src="assets/js/core/config.js"></script>
+  <script src="assets/js/core/dom.js"></script>
+  <script src="assets/js/core/store.js"></script>
+  <script src="assets/js/core/ui.js"></script>
+  <script src="assets/js/pages/category.js"></script>
+</body>
+</html>

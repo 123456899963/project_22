@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>搜索结果 · 茗脉</title>
+  <link rel="stylesheet" href="assets/css/tokens.css">
+  <link rel="stylesheet" href="assets/css/base.css">
+  <link rel="stylesheet" href="assets/css/components.css">
+  <link rel="stylesheet" href="assets/css/pages.css">
+</head>
+<body>
+  <div id="site-header"></div>
+
+  <main>
+    <section class="container search-page-head">
+      <p class="caption">检索 / 茶名 · 别名 · 产地 · 拼音</p>
+      <h1 class="h1">搜索茶品</h1>
+      <form class="search-box mt-4" action="search.html" method="get">
+        <label class="sr-only" for="search-q">搜索关键词</label>
+        <input class="search-input" id="search-q" name="q" type="search" placeholder="输入茶名、别名、产地或拼音，如「龙井」「浙江」" required>
+        <button class="btn btn-primary" type="submit">搜索</button>
+      </form>
+      <p class="search-summary" id="summary"></p>
+    </section>
+
+    <section class="container">
+      <div class="search-filters" id="type-filter"></div>
+      <div class="grid-tea mt-4" id="results"></div>
+      <div id="result-empty" class="hidden"></div>
+    </section>
+  </main>
+
+  <div id="site-footer"></div>
+
+  <script src="assets/js/data/categories.js"></script>
+  <script src="assets/js/data/teas.js"></script>
+  <script src="assets/js/data/comments.js"></script>
+  <script src="assets/js/core/config.js"></script>
+  <script src="assets/js/core/dom.js"></script>
+  <script src="assets/js/core/store.js"></script>
+  <script src="assets/js/core/ui.js"></script>
+  <script src="assets/js/pages/search.js"></script>
+</body>
+</html>

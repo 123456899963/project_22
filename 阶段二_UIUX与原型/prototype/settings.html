@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>账号设置 · 茗脉</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<link rel="stylesheet" href="assets/css/pages.css">
+</head>
+<body id="page-root">
+<div id="site-header"></div>
+
+<main>
+  <section class="container">
+    <nav class="crumbs" aria-label="面包屑">
+      <a href="index.html">首页</a><span>/</span><a href="profile.html">个人中心</a><span>/</span><span>账号设置</span>
+    </nav>
+  </section>
+
+  <section class="container page-head">
+    <div class="page-head__row">
+      <div>
+        <h1 class="h1">账号设置</h1>
+        <p class="page-head__desc">V1 仅支持微信授权，无密码体系。昵称与头像可自行修改，注销需 7 天冷静期。</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="container settings-wrap">
+    <div class="panel">
+      <h2 class="h3">个人资料</h2>
+      <div class="profile-edit mt-4">
+        <span class="avatar avatar--xl" id="edit-avatar"></span>
+        <div class="profile-edit__fields">
+          <div class="field"><label class="field__label" for="nick">昵称（2～12 字）</label>
+            <input class="input" id="nick" maxlength="12">
+            <span class="field__error" id="nick-error"></span></div>
+          <div class="field"><label class="field__label" for="signature">签名（选填，最多 30 字）</label>
+            <input class="input" id="signature" maxlength="30" placeholder="一句话介绍你的茶偏好">
+            <span class="counter" id="signature-counter">0/30</span></div>
+          <div class="field"><label class="field__label">头像底色</label>
+            <div class="chip-row" id="color-row"></div></div>
+          <label class="check-row mt-3"><input type="checkbox" id="notify">
+            <span>接收站内消息与审核结果通知</span></label>
+        </div>
+      </div>
+      <div class="chip-row mt-4">
+        <button class="btn btn-primary" id="save-profile" type="button">保存资料</button>
+      </div>
+    </div>
+
+    <div class="panel mt-4">
+      <h2 class="h3">登录方式</h2>
+      <div class="kv mt-3">
+        <dt>登录方式</dt><dd>微信授权（扫码 / 小程序内授权）</dd>
+        <dt>账号标识</dt><dd id="openid-text">—</dd>
+        <dt>加入时间</dt><dd id="joined-text">—</dd>
+        <dt>账号状态</dt><dd id="status-text">正常</dd>
+      </div>
+      <p class="caption mt-3">如遇微信授权失败，可退出后重新授权；若仍失败，请通过「关于与协议」页反馈。</p>
+    </div>
+
+    <div class="panel mt-4" id="danger-zone">
+      <h2 class="h3">账号注销</h2>
+      <p class="desc-block mt-2">注销后进入 7 天冷静期，期间可撤销；到期解绑 openid，昵称匿名化，内容保留但不再关联你的账号。重新授权将创建新账号，不恢复旧数据。</p>
+      <div class="chip-row mt-4" id="danger-actions"></div>
+    </div>
+
+    <div class="panel mt-4">
+      <h2 class="h3">其他</h2>
+      <div class="chip-row mt-3">
+        <a class="btn btn-secondary" href="messages.html">站内消息</a>
+        <a class="btn btn-secondary" href="submissions.html">我的投稿</a>
+        <a class="btn btn-secondary" href="about.html#privacy">隐私政策</a>
+        <button class="btn btn-ghost" id="logout" type="button">退出登录</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div class="modal-mask" id="delete-modal" hidden>
+  <div class="modal">
+    <h3>确认申请注销？</h3>
+    <p>注销申请提交后立即进入 7 天冷静期。期间可浏览，但暂停评论、投稿、纠错与新增收藏。</p>
+    <label class="check-row mt-4"><input type="checkbox" id="delete-ack">
+      <span>我已了解注销后果，且确认当前不是误操作。</span></label>
+    <div class="modal__actions">
+      <button class="btn btn-secondary" id="delete-cancel" type="button">取消</button>
+      <button class="btn btn-danger" id="delete-confirm" type="button" disabled>确认注销</button>
+    </div>
+  </div>
+</div>
+
+<div id="site-footer"></div>
+
+<script src="assets/js/data/categories.js"></script>
+<script src="assets/js/data/teas.js"></script>
+<script src="assets/js/data/comments.js"></script>
+<script src="assets/js/data/mock-user.js"></script>
+<script src="assets/js/core/config.js"></script>
+<script src="assets/js/core/dom.js"></script>
+<script src="assets/js/core/store.js"></script>
+<script src="assets/js/core/ui.js"></script>
+<script src="assets/js/pages/settings.js"></script>
+</body>
+</html>

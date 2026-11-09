@@ -1,0 +1,77 @@
+/* 茗脉 · 基础样式 */
+*,
+*::before,
+*::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--surface-050);
+  color: var(--ink-900);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 26px;
+  -webkit-font-smoothing: antialiased;
+}
+
+img { max-width: 100%; display: block; }
+a { color: inherit; text-decoration: none; }
+button, input, textarea, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+ul, ol { margin: 0; padding: 0; list-style: none; }
+h1, h2, h3, h4, p { margin: 0; }
+
+.container {
+  width: 100%;
+  max-width: var(--container);
+  margin: 0 auto;
+  padding: 0 var(--space-6);
+}
+@media (max-width: 1199px) { .container { max-width: 1120px; padding: 0 var(--space-5); } }
+@media (max-width: 767px) { .container { padding: 0 var(--space-4); } }
+
+.serif { font-family: var(--font-serif); }
+.h1 { font-family: var(--font-serif); font-size: 36px; line-height: 44px; font-weight: 600; letter-spacing: 0.02em; }
+.h2 { font-family: var(--font-serif); font-size: 28px; line-height: 36px; font-weight: 600; letter-spacing: 0.02em; }
+.h3 { font-family: var(--font-serif); font-size: 22px; line-height: 30px; font-weight: 500; letter-spacing: 0.02em; }
+.body-l { font-size: 18px; line-height: 30px; }
+.body-s { font-size: 14px; line-height: 22px; }
+.caption { font-size: 12px; line-height: 18px; color: var(--ink-500); }
+.muted { color: var(--ink-500); }
+.deep { color: var(--ink-700); }
+
+.section { padding: var(--space-8) 0; }
+.section-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-4); margin-bottom: var(--space-5); }
+.section-head .h2 { color: var(--ink-900); }
+.section-head p { color: var(--ink-500); font-size: 14px; }
+
+.stack-1 > * + * { margin-top: var(--space-1); }
+.stack-2 > * + * { margin-top: var(--space-2); }
+.stack-4 > * + * { margin-top: var(--space-4); }
+.mt-2 { margin-top: var(--space-2); }
+.mt-4 { margin-top: var(--space-4); }
+
+.split { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); }
+
+.divider { height: 1px; background: var(--line-200); border: 0; margin: var(--space-5) 0; }
+
+.hidden { display: none !important; }
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+:focus-visible { outline: 2px solid var(--tea-900); outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+
+/* ---- 通用布局 ---- */
+.grid-tea { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-5); }
+@media (max-width: 1199px) { .grid-tea { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 767px) { .grid-tea { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); } }
+
+.page-head { padding: var(--space-7) 0 var(--space-5); }
+.page-head .kicker { font-size: 12px; line-height: 18px; letter-spacing: 0.08em; color: var(--ink-500); text-transform: uppercase; }
