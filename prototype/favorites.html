@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>我的收藏 · 茶·图鉴</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body data-page="favorites">
+
+  <header class="nav">
+    <div class="container nav-inner">
+      <a class="logo" href="index.html">
+        <span class="logo-mark">茶</span><span>茶·图鉴</span>
+      </a>
+      <form class="search" data-search>
+        <span aria-hidden="true" style="color:var(--ink-2)">⌕</span>
+        <input type="search" placeholder="搜茶名或产地" aria-label="搜索茶品">
+        <button class="clear" type="button" aria-label="清除">×</button>
+        <div class="suggest"></div>
+      </form>
+      <div class="nav-actions">
+        <a class="nav-link" href="favorites.html">我的收藏</a>
+        <button class="btn btn-primary btn-sm" id="navAuth" type="button">登录</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="list-head">
+      <div>
+        <h1>我的收藏</h1>
+        <input class="list-title-input" id="listTitle" aria-label="清单标题" value="我的收藏">
+        <p style="margin:4px 0 0;font-size:12px;color:var(--ink-2)"><span id="favCount">0 款</span> · 点击标题可修改清单名称</p>
+      </div>
+      <div class="actions">
+        <button class="btn btn-ghost" id="shareOpen" type="button">分享清单</button>
+        <a class="btn btn-primary" href="list.html">继续逛逛</a>
+      </div>
+    </div>
+
+    <div id="favBox"></div>
+  </main>
+
+  <footer class="footer">
+    <div class="container footer-inner">
+      <span>茶·图鉴 · 茶品鉴知识图鉴原型</span>
+      <span>笔记仅自己可见，分享链接只读</span>
+    </div>
+  </footer>
+
+  <nav class="mobile-tabs" aria-label="移动端导航">
+    <a href="index.html">首页</a>
+    <a href="list.html">茶类</a>
+    <a href="favorites.html" class="on">收藏</a>
+    <a href="profile.html">我的</a>
+  </nav>
+
+  <script src="js/data.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>管理员登录 · 茶·图鉴</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body data-page="admin-login">
+
+  <main class="container">
+    <div class="auth-card">
+      <a class="logo" href="index.html" style="margin-bottom:20px">
+        <span class="logo-mark">茶</span><span>茶·图鉴</span>
+      </a>
+      <h1>管理员登录</h1>
+      <p class="hint">后台用于维护官方茶品数据，仅管理员可访问。</p>
+      <form id="adminLoginForm">
+        <div class="field">
+          <label for="adminName">管理员账号</label>
+          <input id="adminName" autocomplete="username" placeholder="请输入管理员账号">
+        </div>
+        <div class="field">
+          <label for="adminPass">密码</label>
+          <input id="adminPass" type="password" autocomplete="current-password" placeholder="请输入密码">
+        </div>
+        <p class="form-error" id="adminErr"></p>
+        <div class="modal-foot" style="justify-content:space-between">
+          <a class="btn btn-ghost btn-sm" href="index.html">返回前台</a>
+          <button class="btn btn-primary btn-sm" type="submit">登录后台</button>
+        </div>
+      </form>
+      <div class="demo-tip">原型演示账号：admin / admin123</div>
+    </div>
+  </main>
+
+  <script src="js/data.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,75 @@
+services:
+  mysql:
+    # 生产与本地统一 MySQL 5.7，避免 8.0 专属语法（0900 排序规则 / CHECK 约束）暗中生效
+    image: mysql:5.7
+    container_name: tea-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${TEA_DB_ROOT_PASSWORD:-root_dev}
+      MYSQL_DATABASE: ${TEA_DB_NAME:-tea_atlas}
+      MYSQL_USER: ${TEA_DB_USER:-tea_atlas}
+      MYSQL_PASSWORD: ${TEA_DB_PASSWORD:-tea_dev}
+      TZ: Asia/Shanghai
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-time-zone=+08:00
+    volumes:
+      - tea-mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-p${TEA_DB_ROOT_PASSWORD:-root_dev}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    ports:
+      # 仅绑定回环：数据库不对公网暴露，宿主机备份/排查仍可直连
+      - "127.0.0.1:3306:3306"
+
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: tea-backend
+    environment:
+      TEA_PROFILE: ${TEA_PROFILE:-prod}
+      TEA_DB_HOST: mysql
+      TEA_DB_PORT: "3306"
+      TEA_DB_NAME: ${TEA_DB_NAME:-tea_atlas}
+      TEA_DB_USER: ${TEA_DB_USER:-tea_atlas}
+      TEA_DB_PASSWORD: ${TEA_DB_PASSWORD:-tea_dev}
+      TEA_SECRET_KEY: ${TEA_SECRET_KEY:?set TEA_SECRET_KEY in deploy/.env}
+      TEA_UPLOAD_DIR: /data/tea/uploads
+      TEA_CORS_ORIGINS: ${TEA_CORS_ORIGINS:-https://$host}
+    volumes:
+      - tea-uploads:/data/tea/uploads
+      - tea-logs:/app/logs
+    depends_on:
+      mysql:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8080/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    expose:
+      - "8080"
+
+  nginx:
+    build:
+      context: ..
+      dockerfile: deploy/nginx/Dockerfile
+    container_name: tea-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - tea-uploads:/var/www/uploads:ro
+      # 证书只读挂载：deploy/certs/server.crt + server.key（私钥不入库）
+      - ../deploy/certs:/etc/nginx/certs:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  tea-mysql-data:
+  tea-uploads:
+  tea-logs:

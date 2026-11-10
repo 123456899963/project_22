@@ -49,3 +49,8 @@ yarn-error.log*
 # === Temp ===
 *.tmp
 *.bak
+.screenshots/
+
+# === AI Agent Temp ===
+.git_backup_prd_only/
+.trae-html-share-packages/

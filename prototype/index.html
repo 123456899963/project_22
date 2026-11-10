@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>茶·图鉴 · 找到适合你的那款茶</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body data-page="home">
+
+  <header class="nav">
+    <div class="container nav-inner">
+      <a class="logo" href="index.html">
+        <span class="logo-mark">茶</span><span>茶·图鉴</span>
+      </a>
+      <form class="search" data-search>
+        <span aria-hidden="true" style="color:var(--ink-2)">⌕</span>
+        <input type="search" placeholder="搜茶名或产地，如 龙井、福鼎" aria-label="搜索茶品">
+        <button class="clear" type="button" aria-label="清除">×</button>
+        <div class="suggest"></div>
+      </form>
+      <div class="nav-actions">
+        <a class="nav-link" href="favorites.html">我的收藏</a>
+        <button class="btn btn-primary btn-sm" id="navAuth" type="button">登录</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="hero">
+      <span class="hero-kicker">中华茶品鉴图鉴</span>
+      <h1>先看懂一款茶，<br>再决定要不要喜欢它。</h1>
+      <p>从外形、汤色、香气、滋味到冲泡参数，用统一的结构记录每一款茶。找到感兴趣的茶，收藏起来慢慢喝。</p>
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="list.html">浏览全部茶品</a>
+        <a class="btn btn-ghost" href="#categories">按茶类浏览</a>
+      </div>
+      <div class="strip" id="heroStrip"></div>
+    </section>
+
+    <section class="section" id="categories">
+      <div class="section-head">
+        <div>
+          <h2>六大茶类</h2>
+          <p>按发酵程度划分，从清鲜到醇厚。</p>
+        </div>
+      </div>
+      <div class="cat-grid" id="catGrid"></div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <h2>大家都在收藏</h2>
+          <p>收藏数最高的 8 款茶。</p>
+        </div>
+        <a class="btn-text" href="list.html?sort=hot">查看全部</a>
+      </div>
+      <div class="hscroll" id="hotList"></div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <h2>随机发现</h2>
+          <p>不知道喝什么？让图鉴替你选一款。</p>
+        </div>
+      </div>
+      <div class="feature" id="featureCard"></div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container footer-inner">
+      <span>茶·图鉴 · 茶品鉴知识图鉴原型</span>
+      <span>数据为原型演示内容，正式版由管理员维护</span>
+    </div>
+  </footer>
+
+  <nav class="mobile-tabs" aria-label="移动端导航">
+    <a href="index.html" class="on">首页</a>
+    <a href="list.html">茶类</a>
+    <a href="favorites.html">收藏</a>
+    <a href="profile.html">我的</a>
+  </nav>
+
+  <script src="js/data.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

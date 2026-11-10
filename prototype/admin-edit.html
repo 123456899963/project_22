@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>编辑茶品 · 茶·图鉴后台</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body data-page="admin-edit">
+
+  <div class="admin-shell">
+    <aside class="admin-side">
+      <div>
+        <a class="admin-brand" href="admin.html">
+          <span class="logo-mark">茶</span>
+          <span>茶·图鉴<small>管理后台</small></span>
+        </a>
+      </div>
+      <nav class="admin-menu">
+        <a class="on" href="admin.html">茶品管理</a>
+        <a href="index.html">返回前台</a>
+      </nav>
+      <div class="admin-side-foot">
+        <a href="#" id="adminLogout" style="color:var(--ink-2)">退出登录</a>
+      </div>
+    </aside>
+
+    <main class="admin-main">
+      <div class="admin-top">
+        <div>
+          <nav class="breadcrumb" style="font-size:12px">
+            <a href="admin.html">茶品管理</a><span>/</span><span id="formCrumb">新增茶品</span>
+          </nav>
+          <h1 id="formTitle">新增茶品</h1>
+        </div>
+        <a class="btn btn-ghost btn-sm" href="admin.html">返回列表</a>
+      </div>
+
+      <form class="admin-form" id="teaForm">
+        <div class="form-row">
+          <label for="fName">名称 <b>*</b></label>
+          <input id="fName" maxlength="30" placeholder="如 西湖龙井">
+        </div>
+        <div class="form-row">
+          <label for="fCategory">茶类 <b>*</b></label>
+          <select id="fCategory"></select>
+        </div>
+        <div class="form-row">
+          <label for="fOrigin">产地 <b>*</b></label>
+          <input id="fOrigin" maxlength="30" placeholder="如 浙江杭州">
+        </div>
+        <div class="form-row">
+          <label for="fSeason">采摘季节 <b>*</b></label>
+          <select id="fSeason"></select>
+        </div>
+        <div class="form-row">
+          <label for="fFerment">发酵程度 <b>*</b></label>
+          <input id="fFerment" maxlength="20" placeholder="如 不发酵">
+        </div>
+        <div class="form-row">
+          <label for="fPrice">价格区间 <b>*</b></label>
+          <input id="fPrice" maxlength="30" placeholder="如 800-3000 元/斤">
+        </div>
+        <div class="form-row">
+          <label for="fShape">外形 <b>*</b></label>
+          <input id="fShape" maxlength="60" placeholder="如 扁平挺直，芽叶成朵">
+        </div>
+        <div class="form-row">
+          <label for="fLiquor">汤色 <b>*</b></label>
+          <input id="fLiquor" maxlength="40" placeholder="如 杏绿明亮">
+        </div>
+        <div class="form-row">
+          <label for="fAroma">香气 <b>*</b></label>
+          <input id="fAroma" maxlength="40" placeholder="如 豆香清高">
+        </div>
+        <div class="form-row">
+          <label for="fTaste">滋味 <b>*</b></label>
+          <input id="fTaste" maxlength="40" placeholder="如 鲜爽回甘">
+        </div>
+        <div class="form-row">
+          <label for="fTemp">水温 <b>*</b></label>
+          <input id="fTemp" maxlength="16" placeholder="如 80℃">
+        </div>
+        <div class="form-row">
+          <label for="fAmount">投茶量 <b>*</b></label>
+          <input id="fAmount" maxlength="16" placeholder="如 3g">
+        </div>
+        <div class="form-row">
+          <label for="fTime">浸泡时间 <b>*</b></label>
+          <input id="fTime" maxlength="20" placeholder="如 1-2 分钟">
+        </div>
+        <div class="form-row">
+          <label for="fStatus">状态</label>
+          <select id="fStatus">
+            <option value="on">已上架</option>
+            <option value="off">已下架</option>
+          </select>
+        </div>
+
+        <div class="form-row full">
+          <label for="fHistory">小贴士 · 历史典故</label>
+          <textarea id="fHistory" maxlength="120" placeholder="可留空，留空则详情页隐藏该块"></textarea>
+        </div>
+        <div class="form-row full">
+          <label for="fSuitable">小贴士 · 适合人群</label>
+          <textarea id="fSuitable" maxlength="120" placeholder="可留空"></textarea>
+        </div>
+        <div class="form-row full">
+          <label for="fPitfall">小贴士 · 冲泡误区</label>
+          <textarea id="fPitfall" maxlength="120" placeholder="可留空"></textarea>
+        </div>
+        <div class="form-row full">
+          <label for="fNote">小贴士 · 品鉴笔记（官方）</label>
+          <textarea id="fNote" maxlength="120" placeholder="可留空"></textarea>
+        </div>
+
+        <div class="form-row full">
+          <label>主图预览</label>
+          <img class="preview" id="fPreview" alt="主图预览">
+          <span style="font-size:12px;color:var(--ink-2)">原型阶段用占位图，正式版在此上传 4:3 主图（≤ 2MB）。</span>
+        </div>
+
+        <p class="form-error" id="formErr"></p>
+        <div class="admin-form-foot">
+          <a class="btn btn-ghost" href="admin.html">取消</a>
+          <button class="btn btn-primary" type="submit">保存茶品</button>
+        </div>
+      </form>
+    </main>
+  </div>
+
+  <script src="js/data.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

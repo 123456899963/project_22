@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>茶品管理 · 茶·图鉴后台</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body data-page="admin">
+
+  <div class="admin-shell">
+    <aside class="admin-side">
+      <div>
+        <a class="admin-brand" href="admin.html">
+          <span class="logo-mark">茶</span>
+          <span>茶·图鉴<small>管理后台</small></span>
+        </a>
+      </div>
+      <nav class="admin-menu">
+        <a class="on" href="admin.html">茶品管理</a>
+        <a href="index.html">返回前台</a>
+      </nav>
+      <div class="admin-side-foot">
+        <a href="#" id="adminLogout" style="color:var(--ink-2)">退出登录</a>
+      </div>
+    </aside>
+
+    <main class="admin-main">
+      <div class="admin-top">
+        <h1>茶品管理</h1>
+        <form class="admin-search" id="adminSearch">
+          <span aria-hidden="true" style="color:var(--ink-2)">⌕</span>
+          <input type="search" name="q" placeholder="搜茶名或产地" aria-label="搜索茶品">
+        </form>
+      </div>
+
+      <div class="admin-toolbar">
+        <select id="adminCategory" aria-label="按茶类筛选"></select>
+        <a class="btn btn-primary btn-sm" href="admin-edit.html">+ 新增茶品</a>
+        <span style="font-size:12px;color:var(--ink-2)" id="adminCount"></span>
+      </div>
+
+      <div class="admin-table-wrap">
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>茶品</th>
+              <th>茶类</th>
+              <th>产地</th>
+              <th>状态</th>
+              <th>收藏数</th>
+              <th>更新时间</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="adminTable"></tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+
+  <script src="js/data.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
