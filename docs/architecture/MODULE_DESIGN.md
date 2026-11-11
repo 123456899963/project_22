@@ -22,7 +22,7 @@
 | M1 | 茶品列表页 + 筛选 | `/api/v1/teas` | `GET ""`（列表+筛选+排序+分页）、`GET /categories`、`GET /origins` | `/teas` · TeaListView | `teas` |
 | M2 | 首页 | `/api/v1/teas` | `GET /hot`（热门推荐）、`GET /random`（随机发现）、`GET /categories`（六大茶类计数） | `/` · HomeView | `teas` |
 | M3 | 茶品详情页 | `/api/v1/teas` | `GET /{tea_id}`（详情 + 小贴士） | `/teas/:id` · TeaDetailView | `teas` + `tea_tips` |
-| M4 | 注册登录 + 个人中心 | `/api/v1/auth` + `/api/v1/me` | `GET /auth/username-availability`、`POST /auth/register`、`POST /auth/login`、`POST /auth/logout`、`GET /auth/me`；`GET /me/stats`、`POST /me/avatar`、`PUT /me/avatar` | 登录模态框（HomeView/MyListView/TeaDetailView 触发）、`/admin/login` · AdminLogin、`/profile` · ProfileView | `users` + `operation_logs` |
+| M4 | 注册登录 + 个人中心 | `/api/v1/auth` + `/api/v1/me` | `GET /auth/username-availability`、`POST /auth/register`、`POST /auth/login`、`POST /auth/logout`、`GET /auth/me`；`GET /me/stats`、`GET /me/notes`、`POST /me/avatar`、`PUT /me/avatar` | 登录模态框（HomeView/MyListView/TeaDetailView 触发）、`/admin/login` · AdminLogin、`/profile` · ProfileView | `users` + `operation_logs` |
 | M5 | 收藏清单 + 品鉴笔记 + 分享链接 | `/api/v1/favorites` + `/api/v1/lists` + `/api/v1/shares` | 见 §4 完整端点表 | `/my` · MyListView、`/c/:shareId` · ShareView | `collection_lists` + `favorite_items` + `share_tokens` + `users`（外键）+ `teas`（外键） |
 | M6 | 管理员后台（数据维护） | `/api/v1/admin` | 见 §4 完整端点表 | `/admin` · AdminLayout + 子路由（Dashboard / Teas / TeaEdit） | `teas` + `tea_tips` + `users`（角色） |
 
@@ -240,7 +240,7 @@ graph LR
 
 ## 4. 完整 REST 端点表汇总
 
-> 下表保留 MVP 首批端点映射（原 29 个）与本批新增的 `/api/v1/me`；**完整端点清单与字段以 API_CONTRACT v1.6 为准（当前 55 个）**，不包含第二阶段预留；`GET /api/v1/health` 为部署探针，不在此表。
+> 下表保留 MVP 首批端点映射（原 29 个）与本批新增的 `/api/v1/me`；**完整端点清单与字段以 API_CONTRACT v1.9 为准（当前 65 个）**，不包含第二阶段预留；`GET /api/v1/health` 为部署探针，不在此表。
 
 ### `/api/v1/teas`（6 个）
 
@@ -311,7 +311,7 @@ graph LR
 | 28 | GET | `/stats` | M6 仪表盘 |
 | 29 | POST | `/upload` | M6 图片上传 |
 
-**MVP 总计：29 个 REST 业务端点**（另有 `GET /api/v1/health` 部署探针）
+**当前总计：65 个 REST 业务端点**（MVP 首批 29 个 + 内容板块与后台扩展 36 个；另有 `GET /api/v1/health` 部署探针）
 
 ---
 
