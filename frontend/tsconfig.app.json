@@ -5,11 +5,8 @@
     "types": ["vite/client"],
     "allowArbitraryExtensions": true,
 
-    /* 渐进式 TypeScript 策略 — 初期宽松（§4.4） */
-    "strict": false,
-    "noImplicitAny": false,
-    "noImplicitThis": false,
-    "alwaysStrict": false,
+    /* 严格模式（2026-11-10 工程阶段一开启）：存量错误已清零，新增代码不得回退 */
+    "strict": true,
 
     /* 路径别名：@ → src */
     "baseUrl": ".",
