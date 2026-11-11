@@ -44,3 +44,13 @@ export function buildCompareMatrix(teas: CompareMap): CompareRow[] {
     row('投茶量', (tea) => formatNumber(tea?.tea_amount, 'g')),
   ]
 }
+
+/**
+ * 判断一行是否存在差异（用于表格差异项高亮）
+ * 忽略 null（缺失列不参与比较），去重后仍有 2 个以上值即为有差异。
+ */
+export function hasDifference(values: Array<string | null>): boolean {
+  const distinct = new Set(values.filter((value): value is string => value != null))
+  return distinct.size > 1
+}
+
