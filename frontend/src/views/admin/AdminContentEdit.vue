@@ -1,227 +1,31 @@
 <script setup lang="ts">
 /**
- * 管理员内容编辑（批次五 R1–R5）：新增/编辑共用
+ * 管理员内容编辑：新增/编辑共用。
+ * 逻辑在 composables/useAdminContentEdit.ts，页面只负责表单渲染。
  */
-import { computed, onMounted, ref, watch } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { useRoute, useRouter } from 'vue-router'
-import { createAdminContent, getAdminContent, updateAdminContent } from '@/api/admin'
-import { getContentTypes } from '@/api/contents'
-import type {
-  AdminContentCreatePayload,
-  AdminContentUpdatePayload,
-  ContentTypeCode,
-  ContentTypeItem,
-} from '@/types'
+import { useAdminContentEdit } from './composables/useAdminContentEdit'
 
-const route = useRoute()
-const router = useRouter()
-
-const editId = computed(() => {
-  const id = route.params.id
-  return id ? Number(id) : null
-})
-const isEdit = computed(() => editId.value !== null)
-
-interface ContentForm {
-  type_code: ContentTypeCode | ''
-  title: string
-  summary: string
-  body: string
-  cover_image: string
-  meta: Record<string, unknown>
-  sort_order: number
-  is_active: boolean
-}
-
-const types = ref<ContentTypeItem[]>([])
-const loading = ref(true)
-const saving = ref(false)
-
-// 表单
-const form = ref<ContentForm>({
-  type_code: '',
-  title: '',
-  summary: '',
-  body: '',
-  cover_image: '',
-  meta: {},
-  sort_order: 0,
-  is_active: true,
-})
-
-// meta 编辑辅助（按板块动态渲染）
-const teawareMeta = ref({ material: '', volume: '', category: '' })
-const originMeta = ref({ province: '', region: '' })
-const cultureMeta = ref({ era: '', tags: '' })
-const brandMeta = ref({ founded: '' as number | string, brand_origin: '', website: '' })
-const knowledgeMeta = ref({ subtype: '' as string, difficulty: '' as string })
-
-watch(
-  () => form.value.type_code,
-  () => {
-    // 板块切换时将 meta 同步到对应的 ref 对象（编辑时需要先从 form.value.meta 还原）
-  },
-)
-
-function syncFormFromMeta() {
-  // 将各板块 meta ref → form.value.meta JSON
-  if (form.value.type_code === 'teaware') {
-    const m = teawareMeta.value
-    const meta: Record<string, unknown> = {}
-    if (m.material) meta.material = m.material
-    if (m.volume) meta.volume = m.volume
-    if (m.category) meta.category = m.category
-    form.value.meta = meta
-  } else if (form.value.type_code === 'origin') {
-    const m = originMeta.value
-    const meta: Record<string, unknown> = {}
-    if (m.province) meta.province = m.province
-    if (m.region) meta.region = m.region
-    form.value.meta = meta
-  } else if (form.value.type_code === 'culture') {
-    const m = cultureMeta.value
-    const meta: Record<string, unknown> = {}
-    if (m.era) meta.era = m.era
-    if (m.tags) meta.tags = m.tags.split(',').map((s) => s.trim()).filter(Boolean)
-    form.value.meta = meta
-  } else if (form.value.type_code === 'brand') {
-    const m = brandMeta.value
-    const meta: Record<string, unknown> = {}
-    if (m.founded) meta.founded = Number(m.founded)
-    if (m.brand_origin) meta.brand_origin = m.brand_origin
-    if (m.website) meta.website = m.website
-    form.value.meta = meta
-  } else if (form.value.type_code === 'knowledge') {
-    const m = knowledgeMeta.value
-    const meta: Record<string, unknown> = {}
-    if (m.subtype) meta.subtype = m.subtype
-    if (m.difficulty) meta.difficulty = m.difficulty
-    form.value.meta = meta
-  } else {
-    form.value.meta = {}
-  }
-}
-
-function restoreMetaFromForm() {
-  // 将 form.value.meta JSON → 各板块 ref 对象（编辑回填时调用）
-  const type = form.value.type_code
-  const m = form.value.meta || {}
-  if (type === 'teaware') {
-    teawareMeta.value.material = String(m.material ?? '')
-    teawareMeta.value.volume = String(m.volume ?? '')
-    teawareMeta.value.category = String(m.category ?? '')
-  } else if (type === 'origin') {
-    originMeta.value.province = String(m.province ?? '')
-    originMeta.value.region = String(m.region ?? '')
-  } else if (type === 'culture') {
-    cultureMeta.value.era = String(m.era ?? '')
-    const tags = Array.isArray(m.tags) ? (m.tags as string[]).join(',') : String(m.tags ?? '')
-    cultureMeta.value.tags = tags
-  } else if (type === 'brand') {
-    brandMeta.value.founded = (m.founded as number) ?? ''
-    brandMeta.value.brand_origin = String(m.brand_origin ?? '')
-    brandMeta.value.website = String(m.website ?? '')
-  } else if (type === 'knowledge') {
-    knowledgeMeta.value.subtype = String(m.subtype ?? '')
-    knowledgeMeta.value.difficulty = String(m.difficulty ?? '')
-  }
-}
-
-async function load() {
-  loading.value = true
-  try {
-    types.value = await getContentTypes()
-
-    if (isEdit.value && editId.value) {
-      const res = await getAdminContent(editId.value)
-      const item = res.data
-      // 回填表单
-      form.value.type_code = item.type_code
-      form.value.title = item.title
-      form.value.summary = item.summary ?? ''
-      form.value.body = item.body ?? ''
-      form.value.cover_image = item.cover_image ?? ''
-      form.value.meta = item.meta ?? {}
-      form.value.sort_order = item.sort_order
-      form.value.is_active = item.is_active ?? true
-      // meta → 各板块 ref 对象
-      restoreMetaFromForm()
-    }
-  } catch {
-    ElMessage.error('加载失败')
-  } finally {
-    loading.value = false
-  }
-}
-
-async function onSubmit() {
-  if (!form.value.title.trim()) {
-    ElMessage.warning('请填写标题')
-    return
-  }
-  if (!form.value.type_code) {
-    ElMessage.warning('请选择板块类型')
-    return
-  }
-  syncFormFromMeta()
-
-  saving.value = true
-  try {
-    if (isEdit.value && editId.value) {
-      const payload: AdminContentUpdatePayload = {
-        title: form.value.title.trim(),
-        summary: form.value.summary.trim() || null,
-        body: form.value.body.trim() || null,
-        cover_image: form.value.cover_image.trim() || null,
-        meta: form.value.meta,
-        sort_order: form.value.sort_order,
-        is_active: form.value.is_active,
-      }
-      await updateAdminContent(editId.value, payload)
-      ElMessage.success('已更新')
-    } else {
-      const payload: AdminContentCreatePayload = {
-        type_code: form.value.type_code as ContentTypeCode,
-        title: form.value.title.trim(),
-        summary: form.value.summary.trim() || null,
-        body: form.value.body.trim() || null,
-        cover_image: form.value.cover_image.trim() || null,
-        meta: form.value.meta,
-        sort_order: form.value.sort_order,
-      }
-      await createAdminContent(payload)
-      ElMessage.success('已创建')
-    }
-    router.push('/admin/contents')
-  } catch {
-    ElMessage.error(isEdit.value ? '更新失败' : '创建失败')
-  } finally {
-    saving.value = false
-  }
-}
-
-function onCancel() {
-  ElMessageBox.confirm('未保存的修改将丢失，确认返回？', '提示', {
-    confirmButtonText: '返回',
-    cancelButtonText: '继续编辑',
-    type: 'warning',
-  }).then(() => router.push('/admin/contents')).catch(() => {})
-}
-
-onMounted(load)
+const {
+  isEdit,
+  types,
+  loading,
+  saving,
+  form,
+  teawareMeta,
+  originMeta,
+  cultureMeta,
+  brandMeta,
+  knowledgeMeta,
+  onSubmit,
+  onCancel,
+} = useAdminContentEdit()
 </script>
 
 <template>
   <div class="admin-content-edit">
     <h3 class="admin-content-edit__title">{{ isEdit ? '编辑内容' : '新增内容' }}</h3>
 
-    <el-form
-      v-if="!loading"
-      :model="form"
-      label-width="100px"
-      style="max-width: 720px"
-    >
+    <el-form v-if="!loading" :model="form" label-width="100px" style="max-width: 720px">
       <el-form-item label="板块类型" required>
         <el-select v-model="form.type_code" placeholder="请选择板块" :disabled="isEdit">
           <el-option
