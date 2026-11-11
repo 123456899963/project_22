@@ -1,473 +1,169 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { RouterLink, useRoute, useRouter } from 'vue-router'
+/**
+ * 茶品列表页（手卷五章 · 茶品总目）
+ * 页面只负责结构与样式；筛选逻辑全部在 useTeaList，筛选面板在 FilterBar，网格在 TeaGrid。
+ */
 import AppHeader from '@/components/AppHeader.vue'
 import AppFooter from '@/components/AppFooter.vue'
+import AppBreadcrumb from '@/components/AppBreadcrumb.vue'
 import TeaCard from '@/components/TeaCard.vue'
-import { useTeaStore } from '@/stores/tea'
-import { getHotTeas } from '@/api/teas'
-import type { TeaCategory, TeaListItem, TeaSort } from '@/types'
-import {
-  CATEGORY_LABELS,
-  TEA_CATEGORIES,
-  TEA_FERMENTATIONS,
-  TEA_SEASONS,
-  buildListParams,
-  defaultTeaFilterState,
-  listActiveFilters,
-  parseRouteQuery,
-  serializeFilterState,
-} from '@/utils/teaQuery'
-import type { ActiveFilter, TeaFilterState } from '@/utils/teaQuery'
+import FilterBar from '@/components/FilterBar.vue'
+import FilterChips from '@/components/FilterChips.vue'
+import TeaGrid from '@/components/TeaGrid.vue'
+import TeaPagination from '@/components/TeaPagination.vue'
+import MobilePullRefresh from '@/components/MobilePullRefresh.vue'
+import { useTeaList } from '@/composables/useTeaList'
+import { usePullToRefresh } from '@/composables/usePullToRefresh'
 
-/** 价格区间下拉预设（元/斤，S2）：0 表示不限 */
-const PRICE_OPTIONS = [0, 100, 300, 500, 1000, 3000, 5000] as const
+const {
+  teaStore,
+  state,
+  suggestions,
+  categoryOptions,
+  activeFilters,
+  hasPrice,
+  hasAnyFilter,
+  priceText,
+  breadcrumbLabel,
+  totalPages,
+  pageItems,
+  resultText,
+  load,
+  toggleCategory,
+  toggleOrigin,
+  toggleSeason,
+  toggleFermentation,
+  setPriceMin,
+  setPriceMax,
+  setFilterMode,
+  removeFilter,
+  clearPrice,
+  clearAll,
+  onSortChange,
+  clearKeyword,
+  goPage,
+} = useTeaList()
 
-const route = useRoute()
-const router = useRouter()
-const teaStore = useTeaStore()
-
-/** 筛选状态唯一来源：从 URL 解析，修改后写回 URL，再统一由 URL 变化触发请求 */
-const state = reactive<TeaFilterState>(defaultTeaFilterState())
-const suggestions = ref<TeaListItem[]>([])
-
-// —— URL → 状态 → 请求（浏览器的前进/后退也走这条链路）——
-watch(
-  () => route.query,
-  (query) => {
-    Object.assign(state, parseRouteQuery(query))
-    void load()
-  },
-  { immediate: true, deep: true },
-)
-
-onMounted(() => {
-  teaStore.fetchCategories().catch(() => {})
-  teaStore.fetchOrigins().catch(() => {})
-})
-
-async function load() {
-  await teaStore.fetchList(buildListParams(state))
-  if (!teaStore.error && teaStore.total === 0) {
-    void loadSuggestions()
-  }
-}
-
-async function loadSuggestions() {
-  if (suggestions.value.length) return
-  try {
-    const res = await getHotTeas(3)
-    suggestions.value = res.data ?? []
-  } catch {
-    suggestions.value = []
-  }
-}
-
-/** 修改筛选条件并写回 URL（默认重置到第 1 页） */
-function commit(patch: Partial<TeaFilterState>, keepPage = false) {
-  const next: TeaFilterState = { ...state, ...patch }
-  next.page = keepPage ? (patch.page ?? state.page) : 1
-  router.replace({ query: serializeFilterState(next) })
-}
-
-function toggleCategory(category: TeaCategory) {
-  const next = state.categories.includes(category)
-    ? state.categories.filter((c) => c !== category)
-    : [...state.categories, category]
-  commit({ categories: next })
-}
-
-function toggleOrigin(origin: string) {
-  const next = state.origins.includes(origin)
-    ? state.origins.filter((o) => o !== origin)
-    : [...state.origins, origin]
-  commit({ origins: next })
-}
-
-function toggleSeason(season: string) {
-  const next = state.seasons.includes(season)
-    ? state.seasons.filter((s) => s !== season)
-    : [...state.seasons, season]
-  commit({ seasons: next })
-}
-
-function toggleFermentation(fermentation: string) {
-  const next = state.fermentations.includes(fermentation)
-    ? state.fermentations.filter((f) => f !== fermentation)
-    : [...state.fermentations, fermentation]
-  commit({ fermentations: next })
-}
-
-/** 价格下拉：0 表示不限（null），上下限自动保持 min ≤ max */
-function setPriceMin(raw: string) {
-  const value = Number.parseInt(raw, 10)
-  const priceMin = value > 0 ? value : null
-  const priceMax =
-    priceMin != null && state.priceMax != null && state.priceMax < priceMin
-      ? priceMin
-      : state.priceMax
-  commit({ priceMin, priceMax })
-}
-
-function setPriceMax(raw: string) {
-  const value = Number.parseInt(raw, 10)
-  const next = value > 0 ? value : null
-  commit({ priceMax: next })
-}
-
-function setFilterMode(mode: 'and' | 'or') {
-  if (mode === state.filterMode) return
-  commit({ filterMode: mode })
-}
-
-function removeFilter(filter: ActiveFilter) {
-  if (filter.dimension === 'categories') {
-    commit({ categories: state.categories.filter((c) => c !== filter.value) })
-  } else if (filter.dimension === 'origins') {
-    commit({ origins: state.origins.filter((o) => o !== filter.value) })
-  } else if (filter.dimension === 'fermentations') {
-    commit({ fermentations: state.fermentations.filter((f) => f !== filter.value) })
-  } else {
-    commit({ seasons: state.seasons.filter((s) => s !== filter.value) })
-  }
-}
-
-function clearPrice() {
-  commit({ priceMin: null, priceMax: null })
-}
-
-function clearAll() {
-  commit(defaultTeaFilterState())
-}
-
-function onSortChange(event: Event) {
-  commit({ sort: (event.target as HTMLSelectElement).value as TeaSort })
-}
-
-function clearKeyword() {
-  commit({ keyword: '' })
-}
-
-// —— 展示派生数据 ——
-const categoryOptions = computed(() => {
-  const countMap = new Map(teaStore.categories.map((c) => [c.category, c.count]))
-  return TEA_CATEGORIES.map((category) => ({
-    category,
-    label: CATEGORY_LABELS[category],
-    count: countMap.get(category) ?? 0,
-  }))
-})
-
-const activeFilters = computed(() => listActiveFilters(state))
-const hasPrice = computed(() => state.priceMin != null || state.priceMax != null)
-const hasAnyFilter = computed(
-  () =>
-    !!state.keyword ||
-    state.categories.length +
-      state.origins.length +
-      state.seasons.length +
-      state.fermentations.length >
-      0 ||
-    hasPrice.value,
-)
-
-/** 价格区间展示文案 */
-const priceText = computed(() => {
-  const min = state.priceMin
-  const max = state.priceMax
-  if (min != null && max != null) return `¥${min}–${max}/斤`
-  if (min != null) return `¥${min} 以上/斤`
-  if (max != null) return `¥${max} 以下/斤`
-  return ''
-})
-
-const breadcrumbLabel = computed(() => {
-  if (state.keyword) return `搜索："${state.keyword}"`
-  if (state.categories.length === 1) return CATEGORY_LABELS[state.categories[0]]
-  return '全部茶品'
-})
-
-const totalPages = computed(() =>
-  Math.max(1, Math.ceil(teaStore.total / Math.max(1, teaStore.pageSize))),
-)
-
-const pageItems = computed<Array<number | 'ellipsis'>>(() => {
-  const total = totalPages.value
-  if (total <= 1) return []
-  const current = teaStore.page
-  const nums = new Set([1, total, current - 1, current, current + 1])
-  const sorted = [...nums].filter((n) => n >= 1 && n <= total).sort((a, b) => a - b)
-  const items: Array<number | 'ellipsis'> = []
-  let last = 0
-  for (const n of sorted) {
-    if (n - last > 1) items.push('ellipsis')
-    items.push(n)
-    last = n
-  }
-  return items
-})
-
-const resultText = computed(() => (teaStore.loading ? '加载中…' : `共 ${teaStore.total} 款茶`))
-
-function goPage(page: number) {
-  if (page < 1 || page > totalPages.value || page === teaStore.page) return
-  commit({ page }, true)
-  window.scrollTo({ top: 180, behavior: 'smooth' })
-}
+// 移动端下拉刷新：重新拉取当前筛选条件下的列表
+const { distance, status } = usePullToRefresh(() => load())
 </script>
 
 <template>
   <AppHeader />
+  <MobilePullRefresh :distance="distance" :status="status" />
 
   <main class="tea-list-page">
     <div class="container">
       <!-- 面包屑 -->
-      <nav class="breadcrumb" aria-label="面包屑">
-        <RouterLink to="/">首页</RouterLink>
-        <span class="breadcrumb__sep">›</span>
-        <span class="breadcrumb__current">{{ breadcrumbLabel }}</span>
-        <RouterLink class="breadcrumb__compare" to="/compare">六大茶类对比 →</RouterLink>
-      </nav>
+      <AppBreadcrumb
+        :current="breadcrumbLabel"
+        extra-text="六大茶类对比 →"
+        extra-to="/compare"
+      />
 
-      <!-- 筛选面板 -->
-      <section class="filter-bar" aria-label="筛选条件">
-        <div class="filter-group">
-          <div class="filter-group__label">六大茶类</div>
-          <div class="filter-chips">
-            <button
-              v-for="option in categoryOptions"
-              :key="option.category"
-              type="button"
-              class="chip"
-              :class="[
-                `chip--${option.category}`,
-                { 'chip--active': state.categories.includes(option.category) },
-              ]"
-              :aria-pressed="state.categories.includes(option.category)"
-              @click="toggleCategory(option.category)"
-            >
-              {{ option.label }}
-              <span class="chip__count">{{ option.count }}</span>
-            </button>
+      <!-- 章节题头 -->
+      <header class="list-head">
+        <p class="scroll-kicker">茶品总目</p>
+        <h1 class="list-head__title">{{ breadcrumbLabel || '全部茶品' }}</h1>
+        <p class="list-head__sub">按茶类、产地、季节逐层收窄，找到此刻想喝的那一盏。</p>
+      </header>
+
+      <div class="list-layout">
+        <!-- 茶柜（筛选） -->
+        <aside class="list-aside" aria-label="茶柜筛选">
+          <FilterBar
+            :state="state"
+            :category-options="categoryOptions"
+            :origins="teaStore.origins"
+            @toggle-category="toggleCategory"
+            @toggle-origin="toggleOrigin"
+            @toggle-season="toggleSeason"
+            @toggle-fermentation="toggleFermentation"
+            @change-price-min="setPriceMin"
+            @change-price-max="setPriceMax"
+            @change-mode="setFilterMode"
+          />
+        </aside>
+
+        <div class="list-main">
+          <!-- 已选条件 -->
+          <FilterChips
+            :keyword="state.keyword"
+            :filters="activeFilters"
+            :has-price="hasPrice"
+            :price-text="priceText"
+            :has-any-filter="hasAnyFilter"
+            @clear-keyword="clearKeyword"
+            @remove="removeFilter"
+            @clear-price="clearPrice"
+            @clear-all="clearAll"
+          />
+
+          <!-- 排序栏 -->
+          <div class="sort-bar">
+            <!-- key 随结果文案变化，触发一次轻量高亮，让筛选结果"看得见" -->
+            <div :key="resultText" class="sort-bar__result">{{ resultText }}</div>
+            <label class="sort-bar__control">
+              <span class="sort-bar__label">排序</span>
+              <select
+                class="sort-bar__select"
+                :value="state.sort"
+                aria-label="排序方式"
+                @change="onSortChange"
+              >
+                <option value="newest">最新上架</option>
+                <option value="favorite">收藏最多</option>
+              </select>
+            </label>
           </div>
-        </div>
 
-        <div class="filter-group">
-          <div class="filter-group__label">产地</div>
-          <div class="filter-chips">
-            <button
-              v-for="option in teaStore.origins"
-              :key="option.origin"
-              type="button"
-              class="chip chip--default"
-              :class="{ 'chip--active': state.origins.includes(option.origin) }"
-              :aria-pressed="state.origins.includes(option.origin)"
-              @click="toggleOrigin(option.origin)"
-            >
-              {{ option.origin }}
-              <span class="chip__count">{{ option.count }}</span>
-            </button>
-            <span v-if="!teaStore.origins.length" class="filter-group__hint">产地选项加载中…</span>
-          </div>
-        </div>
+          <!-- 结果网格（内部含骨架屏与失败态） -->
+          <TeaGrid
+            :teas="teaStore.list"
+            :loading="teaStore.loading"
+            :error="teaStore.error"
+            @retry="load"
+          />
 
-        <div class="filter-group">
-          <div class="filter-group__label">采摘季节</div>
-          <div class="filter-chips">
-            <button
-              v-for="season in TEA_SEASONS"
-              :key="season"
-              type="button"
-              class="chip chip--default"
-              :class="{ 'chip--active': state.seasons.includes(season) }"
-              :aria-pressed="state.seasons.includes(season)"
-              @click="toggleSeason(season)"
-            >
-              {{ season }}
-            </button>
-          </div>
-        </div>
+          <!-- 分页 -->
+          <TeaPagination
+            v-if="!teaStore.loading && !teaStore.error && teaStore.list.length && totalPages > 1"
+            :page="teaStore.page"
+            :total-pages="totalPages"
+            :items="pageItems"
+            @go="goPage"
+          />
 
-        <div class="filter-group">
-          <div class="filter-group__label">发酵程度</div>
-          <div class="filter-chips">
-            <button
-              v-for="fermentation in TEA_FERMENTATIONS"
-              :key="fermentation"
-              type="button"
-              class="chip chip--default"
-              :class="{ 'chip--active': state.fermentations.includes(fermentation) }"
-              :aria-pressed="state.fermentations.includes(fermentation)"
-              @click="toggleFermentation(fermentation)"
-            >
-              {{ fermentation }}
-            </button>
-          </div>
-        </div>
-
-        <div class="filter-group">
-          <div class="filter-group__label">价格区间（元/斤）</div>
-          <div class="price-range">
-            <select
-              class="price-range__select"
-              aria-label="价格下限"
-              :value="state.priceMin ?? 0"
-              @change="setPriceMin(($event.target as HTMLSelectElement).value)"
-            >
-              <option v-for="opt in PRICE_OPTIONS" :key="`min-${opt}`" :value="opt">
-                {{ opt === 0 ? '最低不限' : `¥${opt}` }}
-              </option>
-            </select>
-            <span class="price-range__sep">–</span>
-            <select
-              class="price-range__select"
-              aria-label="价格上限"
-              :value="state.priceMax ?? 0"
-              @change="setPriceMax(($event.target as HTMLSelectElement).value)"
-            >
-              <option v-for="opt in PRICE_OPTIONS" :key="`max-${opt}`" :value="opt">
-                {{ opt === 0 ? '最高不限' : `¥${opt}` }}
-              </option>
-            </select>
-          </div>
-        </div>
-
-        <div class="filter-group">
-          <div class="filter-group__label">组合方式</div>
-          <div class="mode-switch" role="group" aria-label="筛选组合方式">
-            <button
-              type="button"
-              class="mode-switch__btn"
-              :class="{ 'mode-switch__btn--active': state.filterMode === 'and' }"
-              :aria-pressed="state.filterMode === 'and'"
-              @click="setFilterMode('and')"
-            >
-              同时满足
-            </button>
-            <button
-              type="button"
-              class="mode-switch__btn"
-              :class="{ 'mode-switch__btn--active': state.filterMode === 'or' }"
-              :aria-pressed="state.filterMode === 'or'"
-              @click="setFilterMode('or')"
-            >
-              任一满足
-            </button>
-          </div>
-        </div>
-      </section>
-
-      <!-- 已选条件 -->
-      <div class="filter-selected">
-        <span class="filter-selected__label">已选：</span>
-        <span v-if="!hasAnyFilter" class="filter-selected__empty">暂无筛选，显示全部</span>
-        <span v-if="state.keyword" class="filter-selected__pill">
-          搜索：{{ state.keyword }}
-          <button type="button" aria-label="移除关键词" @click="clearKeyword">×</button>
-        </span>
-        <span
-          v-for="filter in activeFilters"
-          :key="`${filter.dimension}-${filter.value}`"
-          class="filter-selected__pill"
-        >
-          {{ filter.label }}
-          <button type="button" :aria-label="`移除${filter.label}`" @click="removeFilter(filter)">
-            ×
-          </button>
-        </span>
-        <span v-if="hasPrice" class="filter-selected__pill">
-          {{ priceText }}
-          <button type="button" aria-label="移除价格区间" @click="clearPrice">×</button>
-        </span>
-        <button v-if="hasAnyFilter" type="button" class="filter-selected__clear" @click="clearAll">
-          清除全部
-        </button>
-      </div>
-
-      <!-- 排序栏 -->
-      <div class="sort-bar">
-        <div class="sort-bar__result">{{ resultText }}</div>
-        <select
-          class="sort-bar__select"
-          :value="state.sort"
-          aria-label="排序方式"
-          @change="onSortChange"
-        >
-          <option value="newest">最新上架</option>
-          <option value="favorite">收藏最多</option>
-        </select>
-      </div>
-
-      <!-- 骨架屏 -->
-      <div v-if="teaStore.loading" class="tea-grid" aria-hidden="true">
-        <div v-for="n in 6" :key="n" class="skeleton-card">
-          <div class="skeleton skeleton-card__img"></div>
-          <div class="skeleton-card__body">
-            <div class="skeleton skeleton-card__line skeleton-card__line--title"></div>
-            <div class="skeleton skeleton-card__line" style="width: 60%"></div>
-            <div
-              class="skeleton skeleton-card__line skeleton-card__line--sm"
-              style="width: 40%"
-            ></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 加载失败 -->
-      <div v-else-if="teaStore.error" class="state-box">
-        <p class="state-box__text">加载失败：{{ teaStore.error }}</p>
-        <button type="button" class="btn btn--secondary" @click="load">重新加载</button>
-      </div>
-
-      <!-- 结果网格 -->
-      <template v-else-if="teaStore.list.length">
-        <div class="tea-grid">
-          <TeaCard v-for="tea in teaStore.list" :key="tea.id" :tea="tea" />
-        </div>
-
-        <nav v-if="totalPages > 1" class="pagination" aria-label="分页">
-          <button
-            type="button"
-            class="pagination__btn"
-            :disabled="teaStore.page <= 1"
-            aria-label="上一页"
-            @click="goPage(teaStore.page - 1)"
+          <!-- 空结果 -->
+          <div
+            v-else-if="!teaStore.loading && !teaStore.error && !teaStore.list.length"
+            class="empty-state"
           >
-            ‹
-          </button>
-          <template v-for="(item, index) in pageItems" :key="index">
-            <span v-if="item === 'ellipsis'" class="pagination__ellipsis">…</span>
-            <button
-              v-else
-              type="button"
-              class="pagination__btn"
-              :class="{ 'pagination__btn--active': item === teaStore.page }"
-              @click="goPage(item)"
+            <svg
+              class="empty-state__art"
+              viewBox="0 0 160 120"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.2"
+              aria-hidden="true"
             >
-              {{ item }}
-            </button>
-          </template>
-          <button
-            type="button"
-            class="pagination__btn"
-            :disabled="teaStore.page >= totalPages"
-            aria-label="下一页"
-            @click="goPage(teaStore.page + 1)"
-          >
-            ›
-          </button>
-        </nav>
-      </template>
+              <path d="M14 96h132" />
+              <path d="M22 96V78h36v18" />
+              <path d="M54 78V70h44v8" />
+              <path d="M72 70V58h30v12" />
+              <path d="M40 58h18" />
+              <path d="M116 96v-8h18v8" />
+              <path d="M120 78c-4-6-4-12 0-18" />
+              <path d="M130 80c4-5 4-10 0-14" />
+            </svg>
+            <h3 class="empty-state__title">茶架暂空</h3>
+            <p class="empty-state__desc">试试调整筛选条件，或者清除全部筛选看看</p>
+            <button type="button" class="btn btn--secondary" @click="clearAll">清除全部筛选</button>
 
-      <!-- 空结果 -->
-      <div v-else class="empty-state">
-        <div class="empty-state__icon">🫖</div>
-        <h3 class="empty-state__title">暂无符合条件的茶品</h3>
-        <p class="empty-state__desc">试试调整筛选条件，或者清除全部筛选看看</p>
-        <button type="button" class="btn btn--secondary" @click="clearAll">清除全部筛选</button>
-
-        <div v-if="suggestions.length" class="empty-state__suggest">
-          <TeaCard v-for="tea in suggestions" :key="tea.id" :tea="tea" compact />
+            <div v-if="suggestions.length" class="empty-state__suggest">
+              <TeaCard v-for="tea in suggestions" :key="tea.id" :tea="tea" compact />
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -479,447 +175,175 @@ function goPage(page: number) {
 <style scoped>
 .tea-list-page {
   padding-top: 64px;
-  padding-bottom: 48px;
+  padding-bottom: 64px;
 }
 
 .container {
-  max-width: 1200px;
+  max-width: 1240px;
   margin: 0 auto;
   padding: 0 32px;
 }
 
-@media (max-width: 1023px) {
+@media (max-width: 1024px) {
   .container {
     padding: 0 24px;
   }
 }
 
-@media (max-width: 767px) {
+@media (max-width: 640px) {
   .tea-list-page {
     padding-top: 56px;
+    padding-bottom: 40px;
   }
+
   .container {
     padding: 0 16px;
   }
 }
 
-.breadcrumb {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+/* 章节题头 */
+.list-head {
+  padding: 28px 0 26px;
+}
+
+.list-head__title {
+  font-family: var(--font-display);
+  font-size: var(--text-h1);
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  color: var(--color-ink);
+  margin: 10px 0 8px;
+}
+
+.list-head__sub {
+  margin: 0;
   font-size: var(--text-small);
-  color: var(--color-text-muted);
-  padding: 8px 0 20px;
+  color: var(--color-ink-faint);
 }
 
-.breadcrumb__sep {
-  color: var(--color-border-dark);
+.list-layout {
+  display: grid;
+  grid-template-columns: 264px minmax(0, 1fr);
+  gap: 36px;
+  align-items: start;
 }
 
-.breadcrumb__current {
-  color: var(--color-text-primary);
+.list-aside {
+  position: sticky;
+  top: 84px;
+  max-height: calc(100vh - 104px);
+  overflow-y: auto;
 }
 
-.breadcrumb__compare {
-  margin-left: auto;
-  font-size: var(--text-small);
-  color: var(--color-primary);
+.list-main {
+  min-width: 0;
 }
 
-.breadcrumb__compare:hover {
-  text-decoration: underline;
+@media (max-width: 1024px) {
+  .list-layout {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+
+  .list-aside {
+    position: static;
+    max-height: none;
+    overflow: visible;
+  }
 }
 
-.filter-bar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 20px;
-  margin-bottom: 16px;
-}
-
-.filter-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.filter-group__label {
-  font-size: var(--text-caption);
-  color: var(--color-text-muted);
-  font-weight: 500;
-  letter-spacing: 0.5px;
-}
-
-.filter-group__hint {
-  font-size: var(--text-caption);
-  color: var(--color-text-muted);
-}
-
-.filter-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.price-range {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.price-range__select {
-  height: 36px;
-  padding: 0 28px 0 12px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--color-border-dark);
-  background: var(--color-bg-surface);
-  font-size: var(--text-small);
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  outline: none;
-  appearance: none;
-}
-
-.price-range__select:focus {
-  border-color: var(--color-primary);
-}
-
-.price-range__sep {
-  color: var(--color-text-muted);
-}
-
-.mode-switch {
-  display: inline-flex;
-  border: 1px solid var(--color-border-dark);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-}
-
-.mode-switch__btn {
-  height: 36px;
-  padding: 0 16px;
-  border: none;
-  background: transparent;
-  font-size: var(--text-small);
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  transition:
-    background 0.2s,
-    color 0.2s;
-}
-
-.mode-switch__btn + .mode-switch__btn {
-  border-left: 1px solid var(--color-border-dark);
-}
-
-.mode-switch__btn--active {
-  background: var(--color-primary);
-  color: var(--color-text-inverse);
-}
-
-.chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 36px;
-  padding: 0 16px;
-  border-radius: var(--radius-md);
-  font-size: var(--text-small);
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-  background: transparent;
-  border: 1px solid var(--color-border-dark);
-  color: var(--color-text-secondary);
-  user-select: none;
-}
-
-.chip:hover {
-  background: var(--color-bg-muted);
-}
-
-.chip__count {
-  font-size: var(--text-caption);
-  opacity: 0.75;
-}
-
-.chip--green {
-  border-color: var(--color-tea-green);
-  color: var(--color-tea-green);
-}
-
-.chip--green.chip--active {
-  background: var(--color-tea-green);
-  color: var(--color-text-inverse);
-}
-
-.chip--white {
-  border-color: var(--color-tea-white);
-  color: var(--color-primary-dark);
-}
-
-.chip--white.chip--active {
-  background: var(--color-tea-white);
-  color: var(--color-text-primary);
-}
-
-.chip--yellow {
-  border-color: var(--color-tea-yellow);
-  color: var(--color-primary-dark);
-}
-
-.chip--yellow.chip--active {
-  background: var(--color-tea-yellow);
-  color: var(--color-text-inverse);
-}
-
-.chip--red {
-  border-color: var(--color-tea-red);
-  color: var(--color-tea-red);
-}
-
-.chip--red.chip--active {
-  background: var(--color-tea-red);
-  color: var(--color-text-inverse);
-}
-
-.chip--oolong {
-  border-color: var(--color-tea-oolong);
-  color: var(--color-tea-oolong);
-}
-
-.chip--oolong.chip--active {
-  background: var(--color-tea-oolong);
-  color: var(--color-text-inverse);
-}
-
-.chip--dark {
-  border-color: var(--color-tea-dark);
-  color: var(--color-tea-dark);
-}
-
-.chip--dark.chip--active {
-  background: var(--color-tea-dark);
-  color: var(--color-text-inverse);
-}
-
-.chip--default.chip--active {
-  background: var(--color-primary);
-  border-color: var(--color-primary);
-  color: var(--color-text-inverse);
-}
-
-.filter-selected {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding: 12px 16px;
-  background: var(--color-bg-surface);
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--color-border);
-  margin-bottom: 24px;
-  min-height: 48px;
-}
-
-.filter-selected__label {
-  font-size: var(--text-caption);
-  color: var(--color-text-muted);
-  margin-right: 4px;
-}
-
-.filter-selected__empty {
-  font-size: var(--text-caption);
-  color: var(--color-text-muted);
-}
-
-.filter-selected__pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 28px;
-  padding: 0 8px 0 12px;
-  border-radius: var(--radius-full);
-  background: var(--color-bg-muted);
-  font-size: var(--text-caption);
-  color: var(--color-text-primary);
-}
-
-.filter-selected__pill button {
-  width: 18px;
-  height: 18px;
-  border-radius: var(--radius-full);
-  border: none;
-  background: var(--color-border-dark);
-  color: var(--color-bg-surface);
-  cursor: pointer;
-  font-size: 12px;
-  line-height: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.2s;
-}
-
-.filter-selected__pill button:hover {
-  background: var(--color-error);
-}
-
-.filter-selected__clear {
-  margin-left: auto;
-  font-size: var(--text-small);
-  color: var(--color-primary);
-  cursor: pointer;
-  background: none;
-  border: none;
-  padding: 0;
-}
-
-.filter-selected__clear:hover {
-  color: var(--color-primary-hover);
-}
-
+/* 排序栏 */
 .sort-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 16px;
+  gap: 16px;
+  padding: 0 0 12px;
+  border-bottom: 1px solid var(--color-border-dark);
+  margin-bottom: 20px;
 }
 
 .sort-bar__result {
+  font-family: var(--font-kai);
   font-size: var(--text-small);
-  color: var(--color-text-muted);
+  color: var(--color-ink-soft);
+  animation: result-fade 0.28s ease-out;
+}
+
+@keyframes result-fade {
+  from {
+    opacity: 0.3;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sort-bar__result {
+    animation: none;
+  }
+}
+
+.sort-bar__control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sort-bar__label {
+  font-size: var(--text-caption);
+  letter-spacing: 0.16em;
+  color: var(--color-ink-faint);
 }
 
 .sort-bar__select {
-  height: 36px;
-  padding: 0 32px 0 12px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--color-border);
+  height: 34px;
+  padding: 0 30px 0 10px;
+  border-radius: 0;
+  border: 1px solid var(--color-border-dark);
   background: var(--color-bg-surface);
   font-size: var(--text-small);
-  color: var(--color-text-primary);
+  color: var(--color-ink-soft);
   cursor: pointer;
   outline: none;
   appearance: none;
 }
 
 .sort-bar__select:focus {
-  border-color: var(--color-primary);
+  border-color: var(--color-cinnabar);
 }
 
-.tea-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 24px;
-}
-
-@media (max-width: 1023px) {
-  .tea-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 16px;
-  }
-}
-
-@media (max-width: 639px) {
-  .tea-grid {
-    grid-template-columns: 1fr;
-    gap: 16px;
-  }
-}
-
-.skeleton-card {
-  background: var(--color-bg-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-}
-
-.skeleton {
-  background: var(--color-bg-muted);
-  border-radius: var(--radius-sm);
-  position: relative;
-  overflow: hidden;
-}
-
-.skeleton::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    90deg,
-    var(--color-bg-muted) 0%,
-    var(--color-border) 50%,
-    var(--color-bg-muted) 100%
-  );
-  animation: skeleton-shimmer 1.5s infinite;
-}
-
-@keyframes skeleton-shimmer {
-  0% {
-    transform: translateX(-100%);
-  }
-  100% {
-    transform: translateX(100%);
-  }
-}
-
-.skeleton-card__img {
-  width: 100%;
-  aspect-ratio: 16 / 10;
-}
-
-.skeleton-card__body {
-  padding: 16px;
-}
-
-.skeleton-card__line {
-  height: 16px;
-  margin-bottom: 10px;
-  border-radius: var(--radius-sm);
-}
-
-.skeleton-card__line--title {
-  width: 70%;
-  height: 20px;
-}
-
-.skeleton-card__line--sm {
-  width: 40%;
-  height: 14px;
-}
-
-.state-box {
-  padding: 64px 24px;
-  text-align: center;
-}
-
-.state-box__text {
-  font-size: var(--text-small);
-  color: var(--color-error);
-  margin: 0 0 20px;
-}
-
+/* 空态 */
 .empty-state {
   text-align: center;
-  padding: 64px 24px;
+  padding: 48px 24px 32px;
+  border: 1px dashed var(--color-border-dark);
+  background: var(--color-bg-surface);
 }
 
-.empty-state__icon {
-  font-size: 56px;
-  margin-bottom: 16px;
-  opacity: 0.6;
+.empty-state__art {
+  width: 150px;
+  height: auto;
+  margin: 0 auto 18px;
+  display: block;
+  color: var(--color-border-dark);
 }
 
 .empty-state__title {
+  font-family: var(--font-display);
   font-size: var(--text-h3);
-  color: var(--color-text-secondary);
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  color: var(--color-ink-soft);
   margin: 0 0 8px;
 }
 
 .empty-state__desc {
   font-size: var(--text-small);
-  color: var(--color-text-muted);
+  color: var(--color-ink-faint);
   margin: 0 0 24px;
 }
 
@@ -931,78 +355,9 @@ function goPage(page: number) {
   margin: 32px auto 0;
 }
 
-@media (max-width: 639px) {
+@media (max-width: 640px) {
   .empty-state__suggest {
     grid-template-columns: 1fr;
   }
-}
-
-.pagination {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 40px 0 20px;
-}
-
-.pagination__btn {
-  min-width: 40px;
-  height: 40px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--color-border);
-  background: var(--color-bg-surface);
-  color: var(--color-text-secondary);
-  font-size: var(--text-small);
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.pagination__btn:hover:not(:disabled) {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
-}
-
-.pagination__btn--active {
-  background: var(--color-primary);
-  border-color: var(--color-primary);
-  color: var(--color-text-inverse);
-}
-
-.pagination__btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.pagination__ellipsis {
-  color: var(--color-text-muted);
-  font-size: var(--text-small);
-}
-
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  height: 44px;
-  padding: 0 24px;
-  border-radius: var(--radius-full);
-  font-size: var(--text-body);
-  font-weight: 500;
-  cursor: pointer;
-  transition:
-    background 0.2s,
-    border-color 0.2s,
-    color 0.2s;
-  white-space: nowrap;
-}
-
-.btn--secondary {
-  background: transparent;
-  border: 1px solid var(--color-primary);
-  color: var(--color-primary);
-}
-
-.btn--secondary:hover {
-  background: var(--color-bg-muted);
 }
 </style>
