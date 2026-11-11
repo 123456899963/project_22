@@ -10,7 +10,7 @@
 
 | 文件 | 内容 | 权威性 |
 |---|---|---|
-| [API_CONTRACT.md](API_CONTRACT.md) | 55 个业务端点的请求/响应、错误码、分页与排序、认证约定 | 字段与行为描述的唯一依据 |
+| [API_CONTRACT.md](API_CONTRACT.md) | 65 个业务端点的请求/响应、错误码、分页与排序、认证约定 | 字段与行为描述的唯一依据 |
 | [openapi.yaml](openapi.yaml) | 机器可读的 OpenAPI 定义，供文档与联调工具使用 | 与 API_CONTRACT 必须逐字一致 |
 
 两份文件**同时有效**：任何改动必须一起改，不允许只改其一。
