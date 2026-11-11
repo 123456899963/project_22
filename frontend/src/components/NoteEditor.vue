@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { saveTastingNote } from '@/api/lists'
 import { useToastStore } from '@/stores/toast'
 
@@ -17,11 +17,19 @@ const emit = defineEmits<{ saved: [note: string | null] }>()
 const toast = useToastStore()
 const draft = ref('')
 const saving = ref(false)
+/** 保存成功后的原地轻提示文案（阶段二：替代纯 Toast） */
+const savedHint = ref('')
+let closeTimer: number | undefined
+
+onBeforeUnmount(() => window.clearTimeout(closeTimer))
 
 const count = computed(() => draft.value.length)
 
 watch(visible, (open) => {
-  if (open) draft.value = props.initialNote ?? ''
+  if (open) {
+    draft.value = props.initialNote ?? ''
+    savedHint.value = ''
+  }
 })
 
 watch(
@@ -33,6 +41,7 @@ watch(
 
 function close() {
   if (saving.value) return
+  window.clearTimeout(closeTimer)
   visible.value = false
 }
 
@@ -47,8 +56,17 @@ async function save() {
   try {
     const res = await saveTastingNote(props.listId, props.teaId, content)
     emit('saved', res.data.tasting_note)
-    visible.value = false
-    toast.success(content ? '品鉴笔记已保存' : '品鉴笔记已清空')
+    // 原地显示「已保存 · 时间」，短暂停留后自动关闭
+    const time = new Date().toLocaleTimeString('zh-CN', {
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+    savedHint.value = `已保存 · ${time}`
+    window.clearTimeout(closeTimer)
+    closeTimer = window.setTimeout(() => {
+      savedHint.value = ''
+      visible.value = false
+    }, 900)
   } catch {
     // 统一错误提示由请求拦截器处理
   } finally {
@@ -81,6 +99,9 @@ async function save() {
         <span>私密笔记，不会出现在分享页</span>
         <span>{{ count.toLocaleString('zh-CN') }} / 20,000</span>
       </div>
+
+      <!-- 保存反馈（阶段二）：原地展开，不打断输入位置 -->
+      <p v-if="savedHint" class="note-saved" role="status">✓ {{ savedHint }}</p>
 
       <footer class="modal__footer">
         <button type="button" class="btn btn--ghost" :disabled="saving" @click="close">取消</button>
@@ -186,53 +207,30 @@ async function save() {
   margin-top: 20px;
 }
 
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 40px;
-  padding: 0 20px;
-  border-radius: var(--radius-full);
+/* 保存反馈动画（阶段二） */
+.note-saved {
+  margin: 12px 0 0;
   font-size: var(--text-small);
-  font-weight: 500;
-  cursor: pointer;
-  transition:
-    background 0.2s,
-    border-color 0.2s;
+  color: var(--color-primary);
+  animation: note-saved-in 0.24s ease-out;
 }
 
-.btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+@keyframes note-saved-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
-.btn--primary {
-  border: 1px solid var(--color-primary);
-  background: var(--color-primary);
-  color: var(--color-text-inverse);
+@media (prefers-reduced-motion: reduce) {
+  .note-saved {
+    animation: none;
+  }
 }
 
-.btn--primary:hover:not(:disabled) {
-  background: var(--color-primary-hover);
-}
-
-.btn--secondary {
-  border: 1px solid var(--color-border-dark);
-  background: transparent;
-  color: var(--color-text-secondary);
-}
-
-.btn--secondary:hover:not(:disabled) {
-  background: var(--color-bg-muted);
-}
-
-.btn--ghost {
-  border: none;
-  background: transparent;
-  color: var(--color-text-muted);
-}
-
-.btn--ghost:hover:not(:disabled) {
-  background: var(--color-bg-muted);
-}
+/* 按钮样式统一在全局 style.css（.btn / 各变体） */
 </style>
