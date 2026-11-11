@@ -36,7 +36,7 @@ async function load() {
   try {
     const res = await getAdminContents({
       type: filters.type || undefined,
-      is_active: filters.is_active,
+      is_active: filters.is_active ?? undefined,
       page: page.value,
       page_size: pageSize.value,
     })
@@ -115,7 +115,7 @@ onMounted(load)
     >
       <el-table-column prop="id" label="ID" width="70" />
       <el-table-column prop="type_code" label="板块" width="110">
-        <template #default="{ row }">{{ TYPE_LABELS[row.type_code] }}</template>
+        <template #default="{ row }">{{ TYPE_LABELS[row.type_code as ContentTypeCode] }}</template>
       </el-table-column>
       <el-table-column prop="title" label="标题" min-width="200" show-overflow-tooltip />
       <el-table-column prop="summary" label="摘要" min-width="200" show-overflow-tooltip>
