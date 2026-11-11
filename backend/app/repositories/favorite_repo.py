@@ -7,6 +7,7 @@
 from sqlalchemy import case, func, update
 from sqlalchemy.orm import Session
 
+from app.models.collection_list import CollectionList
 from app.models.favorite import FavoriteItem
 from app.models.tea import Tea
 
@@ -130,3 +131,38 @@ def count_categories_by_user(db: Session, user_id: int) -> list[tuple[str, int]]
         .all()
     )
     return [(category, int(cnt)) for category, cnt in rows]
+
+
+def count_active_categories_by_user(db: Session, user_id: int) -> dict[str, int]:
+    """用户收藏中仍上架茶的茶类分布（S15 个人中心）：同一茶品跨清单只计 1 次。
+
+    与 count_categories_by_user 的区别：额外过滤 is_active=1，
+    用于个人中心展示，避免已下架茶品出现在分布图中。
+    """
+    rows = (
+        db.query(Tea.category, func.count(func.distinct(FavoriteItem.tea_id)))
+        .join(Tea, Tea.id == FavoriteItem.tea_id)
+        .filter(FavoriteItem.user_id == user_id, Tea.is_active == 1)
+        .group_by(Tea.category)
+        .all()
+    )
+    return {category: int(cnt) for category, cnt in rows}
+
+
+def list_notes_by_user(db: Session, user_id: int) -> list[tuple[FavoriteItem, Tea, CollectionList]]:
+    """用户全部非空品鉴笔记（§4.7.4），含茶品与所属清单。
+
+    按收藏时间倒序返回；同一茶品跨清单的去重与「默认清单优先」由 Service 处理。
+    """
+    return (
+        db.query(FavoriteItem, Tea, CollectionList)
+        .join(Tea, Tea.id == FavoriteItem.tea_id)
+        .join(CollectionList, CollectionList.id == FavoriteItem.list_id)
+        .filter(
+            FavoriteItem.user_id == user_id,
+            FavoriteItem.tasting_note.isnot(None),
+            FavoriteItem.tasting_note != "",
+        )
+        .order_by(FavoriteItem.created_at.desc(), FavoriteItem.tea_id.desc())
+        .all()
+    )
