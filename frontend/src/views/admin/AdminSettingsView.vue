@@ -77,7 +77,7 @@ onMounted(load)
           <span class="settings-key">{{ it.key }}</span>
           <el-input
             :model-value="it.value"
-            @update:model-value="(v) => editValue(it.key, v)"
+            @update:model-value="(v: string) => editValue(it.key, v)"
             style="max-width: 200px"
           />
         </div>
