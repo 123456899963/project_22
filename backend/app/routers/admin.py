@@ -3,7 +3,7 @@
 红线：
 - 所有端点先鉴权后校验参数：router 级 Depends(get_admin_user) 在最前执行
 - 前端路由守卫仅是体验层，不构成安全边界（SECURITY S-11）
-- 不提供用户管理/日志查询/审核队列/批量导入/物理删除
+- 用户管理见 users_admin.py、审计日志见 audit.py、图片库见 media_admin.py、运行时配置见 settings_admin.py
 """
 
 from fastapi import APIRouter, Depends, File, Query, UploadFile
