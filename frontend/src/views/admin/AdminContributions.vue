@@ -1,22 +1,19 @@
 <script setup lang="ts">
 /**
- * 管理员审核后台（S12）：提交队列 + 详情预览 + 通过 / 拒绝（预设理由）
+ * 管理员审核后台（S12）：提交队列 + 详情预览 + 通过 / 拒绝（预设理由）。
+ * 两个对话框拆在 views/admin/components 下，页面只保留列表与操作编排。
  */
-import { computed, onMounted, reactive, ref } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import {
-  approveContribution,
-  getAdminContributions,
-  rejectContribution,
-} from '@/api/admin'
+import { approveContribution, getAdminContributions } from '@/api/admin'
 import type {
   ContributionItem,
   ContributionListData,
   ContributionStatus,
   ContributionType,
 } from '@/types'
-
-const REJECT_PRESETS = ['信息不完整', '茶类矛盾', '重复提交', '疑似广告', '其他原因']
+import ContributionDetailDialog from './components/ContributionDetailDialog.vue'
+import RejectReasonDialog from './components/RejectReasonDialog.vue'
 
 const state = ref<'loading' | 'ready' | 'error'>('loading')
 const data = ref<ContributionListData>({ items: [], total: 0, page: 1, page_size: 10 })
@@ -33,20 +30,6 @@ const activeItem = ref<ContributionItem | null>(null)
 
 const rejectVisible = ref(false)
 const rejectTarget = ref<ContributionItem | null>(null)
-const rejectForm = reactive({ preset: REJECT_PRESETS[0], custom: '' })
-
-const rejectReason = computed(() =>
-  rejectForm.preset === '其他原因' ? rejectForm.custom.trim() : rejectForm.preset,
-)
-
-const summary = computed(() => (activeItem.value ? rowSummary(activeItem.value) : ''))
-
-function payloadEntries(item: ContributionItem | null): { key: string; value: string }[] {
-  if (!item) return []
-  return Object.entries(item.payload ?? {})
-    .filter(([, value]) => value !== null && value !== '')
-    .map(([key, value]) => ({ key, value: String(value) }))
-}
 
 function formatDate(value: string | null): string {
   if (!value) return '—'
@@ -89,11 +72,17 @@ function openDetail(row: ContributionItem) {
 }
 
 async function approve(row: ContributionItem) {
-  await ElMessageBox.confirm(`确认通过「${rowSummary(row)}」？`, '审核通过', {
-    confirmButtonText: '通过',
-    cancelButtonText: '取消',
-    type: 'success',
-  })
+  try {
+    await ElMessageBox.confirm(`确认通过「${rowSummary(row)}」？`, '审核通过', {
+      confirmButtonText: '通过',
+      cancelButtonText: '取消',
+      type: 'success',
+    })
+  } catch {
+    // 用户取消，直接返回（避免未处理的 Promise 拒绝）
+    return
+  }
+
   acting.value = true
   try {
     await approveContribution(row.id)
@@ -109,31 +98,14 @@ function approveActive() {
 }
 
 function rejectActive() {
-  if (activeItem.value) openReject(activeItem.value)
+  if (!activeItem.value) return
+  rejectTarget.value = activeItem.value
+  rejectVisible.value = true
 }
 
 function openReject(row: ContributionItem) {
   rejectTarget.value = row
-  rejectForm.preset = REJECT_PRESETS[0]
-  rejectForm.custom = ''
   rejectVisible.value = true
-}
-
-async function submitReject() {
-  if (!rejectTarget.value) return
-  if (!rejectReason.value) {
-    ElMessage.warning('请填写拒绝理由')
-    return
-  }
-  acting.value = true
-  try {
-    await rejectContribution(rejectTarget.value.id, rejectReason.value)
-    ElMessage.success('已拒绝该提交')
-    rejectVisible.value = false
-    void load()
-  } finally {
-    acting.value = false
-  }
 }
 
 onMounted(load)
@@ -219,63 +191,19 @@ onMounted(load)
       />
     </div>
 
-    <!-- 详情预览 -->
-    <el-dialog v-model="detailVisible" title="提交详情" width="720px">
-      <template v-if="activeItem">
-        <el-descriptions :column="2" border>
-          <el-descriptions-item label="提交人">{{ activeItem.username }}</el-descriptions-item>
-          <el-descriptions-item label="类型">
-            {{ activeItem.type === 'new_tea' ? '补充新茶' : '科普投稿' }}
-          </el-descriptions-item>
-          <el-descriptions-item label="状态">{{ activeItem.status }}</el-descriptions-item>
-          <el-descriptions-item label="提交时间">
-            {{ formatDate(activeItem.created_at) }}
-          </el-descriptions-item>
-          <el-descriptions-item v-if="activeItem.target_tea_name" label="目标茶品">
-            {{ activeItem.target_tea_name }}
-          </el-descriptions-item>
-          <el-descriptions-item v-if="activeItem.reject_reason" label="拒绝理由">
-            {{ activeItem.reject_reason }}
-          </el-descriptions-item>
-        </el-descriptions>
-
-        <h3 class="detail-title">{{ summary }}</h3>
-        <el-descriptions :column="1" border>
-          <el-descriptions-item
-            v-for="entry in payloadEntries(activeItem)"
-            :key="entry.key"
-            :label="entry.key"
-          >
-            {{ entry.value }}
-          </el-descriptions-item>
-        </el-descriptions>
-      </template>
-      <template #footer>
-        <template v-if="activeItem?.status === 'pending'">
-          <el-button type="danger" :disabled="acting" @click="rejectActive">拒绝</el-button>
-          <el-button type="success" :disabled="acting" @click="approveActive">通过</el-button>
-        </template>
-        <el-button @click="detailVisible = false">关闭</el-button>
-      </template>
-    </el-dialog>
-
-    <!-- 拒绝理由 -->
-    <el-dialog v-model="rejectVisible" title="拒绝提交" width="480px">
-      <el-form label-width="90px">
-        <el-form-item label="拒绝理由">
-          <el-select v-model="rejectForm.preset">
-            <el-option v-for="item in REJECT_PRESETS" :key="item" :label="item" :value="item" />
-          </el-select>
-        </el-form-item>
-        <el-form-item v-if="rejectForm.preset === '其他原因'" label="自定义">
-          <el-input v-model="rejectForm.custom" maxlength="200" show-word-limit />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="rejectVisible = false">取消</el-button>
-        <el-button type="danger" :loading="acting" @click="submitReject">确认拒绝</el-button>
-      </template>
-    </el-dialog>
+    <!-- 详情预览 / 拒绝理由 -->
+    <ContributionDetailDialog
+      v-model="detailVisible"
+      :item="activeItem"
+      :acting="acting"
+      @approve="approveActive"
+      @reject="rejectActive"
+    />
+    <RejectReasonDialog
+      v-model="rejectVisible"
+      :item="rejectTarget"
+      @submitted="load"
+    />
   </section>
 </template>
 
@@ -308,9 +236,6 @@ onMounted(load)
   padding: 24px;
   color: var(--color-text-muted);
 }
-.detail-title {
-  margin: 20px 0 12px;
-  font-size: var(--text-h3);
-  color: var(--color-primary-dark);
-}
+
+/* 对话框样式分别在 components/ContributionDetailDialog 与 RejectReasonDialog 内 */
 </style>
