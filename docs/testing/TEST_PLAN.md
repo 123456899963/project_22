@@ -2,11 +2,11 @@
 
 | 项 | 值 |
 |---|---|
-| 文档版本 | **v1.4** |
+| 文档版本 | **v1.5** |
 | 创建日期 | 2026-11-07 |
-| 测试对象 | MVP 后端 48 个 REST 端点 + 11 张表约束 + 安全控制 S-01–S-35 |
-| 依据 | [PRD.md](../product/PRD.md) v1.1 · [API_CONTRACT.md](../api/API_CONTRACT.md) v1.6 · [DATA_MODEL.md](../architecture/DATA_MODEL.md) v1.5 · [ARCHITECTURE.md](../architecture/ARCHITECTURE.md) v1.0 · [SECURITY.md](../architecture/SECURITY.md) v1.3 |
-| 用例总数 | **89 条**（高 50 / 中 36 / 低 3） |
+| 测试对象 | MVP 后端 65 个 REST 端点（当前用例覆盖 48 个）+ 11 张表约束 + 安全控制 S-01–S-35 |
+| 依据 | [PRD.md](../product/PRD.md) v1.1 · [API_CONTRACT.md](../api/API_CONTRACT.md) v1.8 · [DATA_MODEL.md](../architecture/DATA_MODEL.md) v1.5 · [ARCHITECTURE.md](../architecture/ARCHITECTURE.md) v1.0 · [SECURITY.md](../architecture/SECURITY.md) v1.3 |
+| 用例总数 | **90 条**（高 51 / 中 36 / 低 3） |
 | 覆盖类型 | 正向、反向、边界；含越权、并发重复提交、超长字段、非法枚举 |
 | 交付边界 | 用例按模块在 `backend/tests/`（pytest）与 `frontend/src/utils/*.spec.ts`（Vitest 纯函数）落地 |
 
@@ -223,13 +223,14 @@
 | **TC-DEF-03** | 异常/错误处理 | 高 | `GET /api/v1/teas`；S-30/S-03 | 测试环境可模拟数据库/Repository 抛出 `RuntimeError` | ① 注入运行时异常；② 调 `GET /teas`；③ 检查响应与服务端日志；④ 恢复后再次调用 | ① HTTP 500、`code=50000`、message 为通用“服务器内部错误”；② 响应无堆栈、无 SQL、无表名/文件路径；③ 服务端日志有完整堆栈但无密码/Cookie；④ 恢复后返回 200，服务未崩溃 |
 | **TC-DEF-04** | 上线检查 | 高 | 种子管理员与密码轮换；S-31/S-02 | 演练环境执行 `init.sql`；准备轮换脚本 `app.scripts.rotate_admin_password` | ① 用 `admin/admin123` 登录；② 执行轮换脚本设置新密码 `Str0ng!Admin#2026`；③ 用旧密码登录；④ 用新密码登录；⑤ 查 `users.password_hash`、脚本输出与日志 | ① 200/`code=0`（仅开发/演练环境允许）；② 脚本执行成功；③ 401/`code=40110`；④ 200/`code=0`；⑤ `password_hash` 以 `$2b$10$` 开头；脚本/日志无明文密码；仓库生产配置中检索不到 `admin123` |
 
-### 5.10 我的与个性化（6 条）
+### 5.10 我的与个性化（7 条）
 
 | 编号 | 模块 | 优先级 | 对应接口/安全项 | 前置条件 | 操作步骤 | 预期结果 |
 |---|---|---|---|---|---|---|
 | **TC-ME-01** | 我的 | 中 | `GET /api/v1/me/stats`；S-11 | 无 Cookie | ① 未登录调用；② 用普通用户 Cookie 调用 | ① 401/`40100`；② 200/`code=0`，返回 `favorite_count/note_count/share_count/level` |
 | **TC-ME-02** | 我的 | 高 | `GET /api/v1/me/stats`；S-15 | 用户已收藏 1 款、写 1 条笔记、生成 1 个有效分享 | ① 调用统计接口；② 核对返回值 | ① `favorite_count=1`、`note_count=1`、`share_count=1`；② `level.name=茶客`、`index=1`、`next_name=茶友`、`next_threshold=5`、`remaining=4` |
 | **TC-ME-03** | 我的 | 中 | `GET /api/v1/me/stats`；S-15 | 可构造不同收藏数 | ① 收藏数 0/4/5/19/20/49/50/120 分别计算等级 | ① 依次为 茶客/茶客/茶友/茶友/茶人/茶人/茶师/茶师；② 茶师 `next_name=null`、`remaining=0`；其余 `remaining` 与阈值差值一致 |
+| **TC-ME-04** | 我的/笔记 | 高 | `GET /api/v1/me/notes`；S-12/S-26 | A 收藏 `tea 1` 并在默认清单写“默认笔记”，同一茶加入普通清单写“L2 笔记”；`tea 2` 写笔记后下架；B 也有笔记 | ① 未登录调用；② A 调用并核对条目；③ B 调用 | ① 401/`40100`；② 200/`code=0`，`tea 1` 只 1 条且正文为“默认笔记”、`list_title=我的收藏`，`tea 2` 存在且 `is_available=false`，按 `favorited_at` 倒序；③ 不含 A 的笔记 |
 | **TC-REC-01** | 推荐 | 中 | `GET /api/v1/teas/recommended`；S-16 | 游客无 Cookie | ① 调用 `?limit=1`；② 检查返回茶品 | ① 200/`code=0`，`data` 为 1 条列表项；② 茶品 `is_active=1`（下架茶不出现） |
 | **TC-REC-02** | 推荐 | 中 | `GET /api/v1/teas/recommended`；S-16 | 登录用户无收藏 | ① 调用 `?limit=1`；② 与游客结果对比 | ① 200/`code=0` 且返回 1 条；② 退化为完全随机，不报错 |
 | **TC-REC-03** | 推荐 | 高 | `GET /api/v1/teas/recommended`；S-16 | 用户已收藏 1 款绿茶，库中另有未收藏绿茶 | ① 调用 `?limit=1`；② 核对推荐结果 | ① 200/`code=0`；② 推荐茶品 `category=green` 且 `id != 已收藏茶`；③ 已下架茶不出现 |
@@ -285,17 +286,17 @@
 | 权限校验 | 4 | TC-PERM-01–04 | 3 | 1 | 0 |
 | 文件上传 | 5 | TC-UPLOAD-01–05 | 3 | 2 | 0 |
 | 异常与防御 | 4 | TC-DEF-01–04 | 2 | 2 | 0 |
-| 我的与个性化 | 6 | TC-ME-01–03、TC-REC-01–03 | 2 | 4 | 0 |
+| 我的与个性化 | 7 | TC-ME-01–04、TC-REC-01–03 | 3 | 4 | 0 |
 | 多清单 | 6 | TC-MLIST-01–06 | 4 | 2 | 0 |
 | 用户贡献与审核 | 8 | TC-CONTRIB-01–08 | 6 | 2 | 0 |
 | 头像与个人中心 | 5 | TC-AVATAR-01–05 | 3 | 2 | 0 |
-| **合计** | **89** | — | **50** | **36** | **3** |
+| **合计** | **90** | — | **51** | **36** | **3** |
 
 ### 6.2 正向 / 反向 / 边界覆盖（按主要目的归类）
 
 | 类型 | 数量 | 代表用例 |
 |---|---:|---|
-| 正向 | 33 | AUTH-01/04、TEA-01/05/07、LIST-01/02/05/08/09、FAV-01/03/06、NOTE-01/03、SHARE-01/05/08、PERM-04、UPLOAD-01/04、DEF-04、ME-02、REC-01/03、MLIST-01/05、CONTRIB-01/04/06/08、AVATAR-02 |
+| 正向 | 34 | AUTH-01/04、TEA-01/05/07、LIST-01/02/05/08/09、FAV-01/03/06、NOTE-01/03、SHARE-01/05/08、PERM-04、UPLOAD-01/04、DEF-04、ME-02/04、REC-01/03、MLIST-01/05、CONTRIB-01/04/06/08、AVATAR-02 |
 | 反向 | 34 | AUTH-02/05/06/07/10/11/13、TEA-02/06、LIST-04、FAV-05、NOTE-02/05、SHARE-03/04/06/07/09、PERM-01/02/03、UPLOAD-02/03/05、DEF-01/03、ME-01、REC-02、MLIST-02/04、CONTRIB-02/03、AVATAR-01/03/05 |
 | 边界/并发 | 22 | AUTH-03/12、TEA-03/04、LIST-06/07、FAV-02/04/07、NOTE-04、SHARE-02/10、DEF-02、ME-03、MLIST-03/06、CONTRIB-05/07、AVATAR-04 |
 
@@ -402,3 +403,4 @@
 | v1.2 | 2026-11-09 | 批次三 S9 多清单：新增 5.11 多清单（MLIST-01–06）；FAV-01/02/03、NOTE-01–05、PERM-03、SHARE-01 更新为多清单路径与断言；端点覆盖 40 个；合计 76 条（高 41 / 中 32 / 低 3） |
 | v1.3 | 2026-11-09 | 批次四 S10–S13：新增 5.12 用户贡献与审核（CONTRIB-01–08）；覆盖端点 46 个；合计 84 条（高 47 / 中 34 / 低 3） |
 | v1.4 | 2026-11-10 | ADR-0004 头像：新增 5.13 头像与个人中心（AVATAR-01–05）；S-02 校验范围补 `/me/avatar`；覆盖端点 48 个；合计 89 条（高 50 / 中 36 / 低 3） |
+| v1.5 | 2026-11-11 | 口径修正：§5.10 的 ME-04（`GET /me/notes`）此前未计入总数；合计 90 条（高 51 / 中 36 / 低 3）；测试对象端点总数对齐为 65 个 |
