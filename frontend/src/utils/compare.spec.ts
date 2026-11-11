@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildCompareMatrix } from './compare'
+import { buildCompareMatrix, hasDifference } from './compare'
 import { TEA_CATEGORIES } from './teaQuery'
 import type { Tea } from '@/types'
 
@@ -56,5 +56,17 @@ describe('buildCompareMatrix', () => {
     expect(rows.find((r) => r.label === '水温')!.values[idx]).toBe('95℃')
     expect(rows.find((r) => r.label === '投茶量')!.values[idx]).toBe('5g')
     expect(rows.find((r) => r.label === '汤色')!.values[idx]).toBeNull()
+  })
+})
+
+describe('hasDifference', () => {
+  it('忽略缺失值后仍有不同值即为差异', () => {
+    expect(hasDifference(['85℃', '95℃', null])).toBe(true)
+    expect(hasDifference(['85℃', '85℃', null])).toBe(false)
+  })
+
+  it('全部缺失或只有一个有效值不算差异', () => {
+    expect(hasDifference([null, null])).toBe(false)
+    expect(hasDifference(['5g'])).toBe(false)
   })
 })
