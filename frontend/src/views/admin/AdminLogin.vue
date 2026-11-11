@@ -29,7 +29,7 @@ async function submit() {
       username: form.username.trim(),
       password: form.password,
     })
-    if (res.data.role !== 'admin') {
+    if (res.data?.role !== 'admin') {
       // 非管理员不留会话，避免普通用户误入后台
       await userStore.logout()
       error.value = '该账号没有管理员权限'
