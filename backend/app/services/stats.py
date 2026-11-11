@@ -10,7 +10,7 @@
 from sqlalchemy.orm import Session
 
 from app.repositories import favorite_repo, share_repo
-from app.schemas.stats import LevelInfo, UserStats
+from app.schemas.stats import CategoryDistributionItem, LevelInfo, UserStats
 
 # (等级名, 达到该等级所需收藏数)；顺序敏感，阈值必须递增
 LEVELS: tuple[tuple[str, int], ...] = (
@@ -19,6 +19,9 @@ LEVELS: tuple[tuple[str, int], ...] = (
     ("茶人", 20),
     ("茶师", 50),
 )
+
+# 六大茶类固定顺序：返回给前端时缺失茶类补 0，保证图表顺序稳定
+CATEGORY_ORDER: tuple[str, ...] = ("green", "white", "yellow", "red", "oolong", "dark")
 
 
 def resolve_level(favorite_count: int) -> LevelInfo:
@@ -48,9 +51,15 @@ def get_stats(db: Session, user_id: int) -> UserStats:
     favorite_count = favorite_repo.count_by_user(db, user_id)
     note_count = favorite_repo.count_notes_by_user(db, user_id)
     share_count = share_repo.count_active_by_user(db, user_id)
+    active_categories = favorite_repo.count_active_categories_by_user(db, user_id)
+    category_distribution = [
+        CategoryDistributionItem(category=category, count=active_categories.get(category, 0))
+        for category in CATEGORY_ORDER
+    ]
     return UserStats(
         favorite_count=favorite_count,
         note_count=note_count,
         share_count=share_count,
         level=resolve_level(favorite_count),
+        category_distribution=category_distribution,
     )
