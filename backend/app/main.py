@@ -1,9 +1,11 @@
+import logging
 from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import text
 
 from app.core.config import settings
 from app.core.database import Base, engine  # noqa: F401 —— 开发期建表开关使用
@@ -24,6 +26,8 @@ from app.routers import (
     tips,
     users_admin,
 )
+
+logger = logging.getLogger(__name__)
 
 # 初始化数据库表（开发期用，生产环境走 Alembic 迁移）
 # Base.metadata.create_all(bind=engine)
@@ -96,6 +100,20 @@ def create_app() -> FastAPI:
     @app.get("/api/v1/health")
     def health():
         return ok({"status": "ok"})
+
+    @app.get("/api/v1/health/ready")
+    def health_ready():
+        """就绪探针：验证数据库连接；部署健康检查使用此端点。"""
+        try:
+            with engine.connect() as connection:
+                connection.execute(text("SELECT 1"))
+        except Exception:
+            logger.exception("readiness check failed: database unavailable")
+            return JSONResponse(
+                status_code=503,
+                content={"code": 50300, "message": "服务未就绪", "data": None},
+            )
+        return ok({"status": "ready"})
 
     return app
 
