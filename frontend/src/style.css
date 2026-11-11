@@ -4,6 +4,15 @@
    方式：把 @theme token 转写为 :root CSS 自定义属性
    ========================================================= */
 
+/* === 0. 自托管字体：霞鹜文楷子集（OFL-1.1） === */
+@font-face {
+  font-family: 'LXGW WenKai';
+  src: url('/fonts/lxgw-wenkai-subset.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* === 1. 品牌主色 === */
 :root {
   /* 茶褐（主色） */
@@ -19,16 +28,41 @@
   --color-tea-oolong: #d35400;
   --color-tea-dark: #4a3728;
 
+  /* 六大茶类汤色（用于茶笺/茶样盒的汤色条） */
+  --soup-green: #b7c46a;
+  --soup-white: #e3d9b8;
+  --soup-yellow: #e0b23f;
+  --soup-red: #a8402c;
+  --soup-oolong: #c07a3a;
+  --soup-dark: #6b3a24;
+
+  /* 宣纸与墨（手卷五章主色） */
+  --color-paper: #f6f1e7;
+  --color-paper-deep: #efe7d8;
+  --color-paper-edge: #e2d6c1;
+  --color-ink: #1f1b16;
+  --color-ink-soft: #4a4238;
+  --color-ink-faint: #8a8072;
+  --color-cinnabar: #b03a2e;
+  --color-cinnabar-dark: #9c3227;
+  --color-cinnabar-soft: rgba(176, 58, 46, 0.08);
+
+  /* 木器（茶架横板 / 茶签筒） */
+  --color-wood-tint: #c7a97d;
+  --color-wood-mid: #b08e5f;
+  --color-wood-deep: #8f7048;
+  --color-wood-dark: #6b5740;
+
   /* 背景色 */
-  --color-bg-page: #faf8f5;
-  --color-bg-surface: #ffffff;
-  --color-bg-muted: #f5f1ec;
+  --color-bg-page: #f6f1e7;
+  --color-bg-surface: #fffdf8;
+  --color-bg-muted: #efe7d8;
   --color-bg-hero: #2c2418;
 
   /* 文字颜色 */
-  --color-text-primary: #2c2c2c;
-  --color-text-secondary: #6b6560;
-  --color-text-muted: #9a9590;
+  --color-text-primary: #1f1b16;
+  --color-text-secondary: #574f44;
+  --color-text-muted: #857b6c;
   --color-text-inverse: #ffffff;
   --color-text-link: #8b7355;
 
@@ -36,17 +70,38 @@
   --color-success: #2e7d32;
   --color-warning: #e68a00;
   --color-error: #c62828;
+  --color-error-hover: #a01f1f;
+  --color-error-soft: rgba(198, 40, 40, 0.08);
   --color-info: #1565c0;
 
   /* 边框色 */
-  --color-border: #edebe8;
-  --color-border-light: #f5f1ec;
-  --color-border-dark: #d5d0ca;
+  --color-border: #ded3c0;
+  --color-border-light: #ece3d3;
+  --color-border-dark: #c8b89e;
 
   /* === 2. 字体系统 === */
-  --font-sans: 'PingFang SC', 'Noto Sans SC', 'Microsoft YaHei', system-ui, sans-serif;
-  --font-display: 'Noto Serif SC', 'Source Han Serif SC', Georgia, serif;
+  /* 正文：优先系统中文字体，保证无网络时也能正常显示 */
+  --font-sans:
+    'PingFang SC', 'Noto Sans SC', 'Microsoft YaHei', 'Hiragino Sans GB', system-ui, sans-serif;
+  /* 标题：霞鹜文楷优先；未加载时回退系统楷体/宋体，保住"手卷"气质 */
+  --font-display:
+    'LXGW WenKai', 'Kaiti SC', 'STKaiti', 'KaiTi', 'Noto Serif SC', 'Songti SC', 'STSong',
+    'SimSun', Georgia, serif;
+  --font-kai:
+    'LXGW WenKai', 'Kaiti SC', 'STKaiti', 'KaiTi', 'Noto Serif SC', 'Songti SC', Georgia, serif;
   --font-mono: 'SF Mono', 'JetBrains Mono', Consolas, monospace;
+
+  /* === 2.1 交互基线 === */
+  --focus-ring-color: rgba(139, 115, 85, 0.45);
+  --focus-ring-width: 2px;
+  --focus-ring-offset: 2px;
+  --btn-height: 40px;
+  --btn-height-sm: 30px;
+  --btn-height-lg: 48px;
+  --btn-padding-x: 20px;
+
+  /* === 2.2 移动端 === */
+  --mobile-tabbar-height: 56px;
 
   /* === 3. 字号 === */
   --text-display: 3rem; /* 48px */
@@ -57,20 +112,24 @@
   --text-small: 0.875rem; /* 14px */
   --text-caption: 0.75rem; /* 12px */
 
-  /* === 4. 圆角 === */
-  --radius-xs: 4px;
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --radius-xl: 20px;
+  /* === 4. 圆角（手卷：去圆角化，只留纸片裁切的极小圆角） === */
+  --radius-xs: 2px;
+  --radius-sm: 2px;
+  --radius-md: 2px;
+  --radius-lg: 3px;
+  --radius-xl: 3px;
   --radius-full: 9999px;
 
-  /* === 5. 阴影 === */
-  --shadow-card: 0 8px 24px rgba(0, 0, 0, 0.06);
-  --shadow-card-hover: 0 12px 32px rgba(0, 0, 0, 0.1);
-  --shadow-hero: 0 2px 12px rgba(0, 0, 0, 0.08);
-  --shadow-dropdown: 0 4px 20px rgba(0, 0, 0, 0.12);
-  --shadow-modal: 0 20px 60px rgba(0, 0, 0, 0.2);
+  /* === 5. 阴影（墨色投影，克制） === */
+  --shadow-card: 0 1px 2px rgba(31, 27, 22, 0.06), 0 10px 28px -22px rgba(31, 27, 22, 0.45);
+  --shadow-card-hover: 0 2px 4px rgba(31, 27, 22, 0.08), 0 18px 40px -24px rgba(31, 27, 22, 0.5);
+  --shadow-hero: 0 2px 12px rgba(31, 27, 22, 0.08);
+  --shadow-dropdown: 0 4px 20px rgba(31, 27, 22, 0.14);
+  --shadow-modal: 0 20px 60px rgba(31, 27, 22, 0.24);
+
+  /* === 6. 手卷版式 === */
+  --rail-width: 44px;
+  --scroll-gutter: 32px;
 }
 
 /* === 全局重置 === */
@@ -93,8 +152,43 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* 宣纸底纹：极轻的噪点，避免大面积平色 */
+body {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
+  background-attachment: fixed;
+}
+
+::selection {
+  background: rgba(176, 58, 46, 0.16);
+  color: var(--color-ink);
+}
+
+/* 卷轴细滚动条 */
+* {
+  scrollbar-color: var(--color-border-dark) transparent;
+  scrollbar-width: thin;
+}
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border-dark);
+  border-radius: 2px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
 #app {
   min-height: 100svh;
+}
+
+/* 移动端底部导航占据的高度，避免内容与页脚被遮挡 */
+@media (max-width: 640px) {
+  #app-root.app-root--with-tabbar {
+    padding-bottom: calc(var(--mobile-tabbar-height) + env(safe-area-inset-bottom, 0px));
+  }
 }
 
 a {
@@ -110,6 +204,129 @@ img {
   max-width: 100%;
   height: auto;
   display: block;
+}
+
+/* === 全局焦点可见基线 ===
+   鼠标点击不显示焦点环，仅键盘导航（Tab）时显示，避免视觉噪音 */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+summary:focus-visible,
+[tabindex]:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: var(--focus-ring-offset);
+  border-radius: var(--radius-xs);
+}
+
+/* === 按钮体系（全局基线）===
+   四档：primary 主操作 / secondary 次操作 / ghost 弱操作 / danger 危险操作
+   四态：hover / active / focus-visible / disabled
+   说明：各视图内已有的 .btn 局部定义优先级更高，本层负责补齐缺失的状态与无障碍属性 */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: var(--btn-height);
+  padding: 0 var(--btn-padding-x);
+  border: 1px solid transparent;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--color-text-primary);
+  font-family: inherit;
+  font-size: var(--text-small);
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  transition:
+    background-color 0.2s,
+    border-color 0.2s,
+    color 0.2s,
+    box-shadow 0.2s,
+    transform 0.12s;
+}
+
+/* 按下反馈：轻微下沉，给出"被按到"的实感 */
+.btn:active:not(:disabled):not([aria-disabled='true']) {
+  transform: translateY(1px) scale(0.99);
+}
+
+.btn:disabled,
+.btn[aria-disabled='true'] {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn--primary {
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
+  box-shadow: 0 1px 0 rgba(31, 27, 22, 0.12);
+}
+.btn--primary:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+  box-shadow: 0 2px 6px -2px rgba(31, 27, 22, 0.35);
+}
+
+.btn--secondary {
+  background: var(--color-bg-muted);
+  border-color: var(--color-border-dark);
+  color: var(--color-primary-dark);
+}
+.btn--secondary:hover:not(:disabled) {
+  background: var(--color-bg-surface);
+  border-color: var(--color-primary);
+}
+
+.btn--ghost {
+  background: transparent;
+  border-color: var(--color-border-dark);
+  color: var(--color-text-secondary);
+}
+.btn--ghost:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: var(--color-bg-muted);
+}
+
+.btn--danger {
+  background: var(--color-error);
+  color: var(--color-text-inverse);
+}
+.btn--danger:hover:not(:disabled) {
+  background: var(--color-error-hover);
+}
+
+.btn--danger-text {
+  background: transparent;
+  color: var(--color-error);
+  padding: 0 8px;
+}
+.btn--danger-text:hover:not(:disabled) {
+  background: var(--color-error-soft);
+}
+
+/* 尺寸 */
+.btn--tiny {
+  min-height: var(--btn-height-sm);
+  padding: 0 12px;
+  font-size: var(--text-caption);
+}
+.btn--lg {
+  min-height: var(--btn-height-lg);
+  padding: 0 28px;
+  font-size: var(--text-body);
+}
+.btn--block {
+  width: 100%;
 }
 
 /* === 工具类 === */
@@ -178,4 +395,72 @@ img {
 }
 .bg-primary {
   background: var(--color-primary);
+}
+
+/* === 手卷工具类 === */
+/* 纸纹：用于大面积区块，避免纯色平板 */
+.paper-texture {
+  background-color: var(--color-paper);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
+}
+
+/* 墨线分隔：中间深、两端淡 */
+.ink-rule {
+  height: 1px;
+  border: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--color-border-dark) 18%,
+    var(--color-border-dark) 82%,
+    transparent
+  );
+}
+
+/* 竖排文字 */
+.vertical-text {
+  writing-mode: vertical-rl;
+  text-orientation: upright;
+  letter-spacing: 0.18em;
+  white-space: nowrap;
+}
+
+/* 朱砂印章 */
+.seal {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-kai);
+  color: var(--color-cinnabar);
+  border: 1px solid var(--color-cinnabar);
+  border-radius: 2px;
+  letter-spacing: 0.08em;
+  line-height: 1.15;
+}
+
+/* 章节小序（卷一 / 卷二 …） */
+.scroll-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-kai);
+  font-size: var(--text-caption);
+  letter-spacing: 0.32em;
+  color: var(--color-cinnabar);
+}
+
+.scroll-kicker::after {
+  content: '';
+  width: 40px;
+  height: 1px;
+  background: currentColor;
+  opacity: 0.45;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+  }
 }
