@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { generateShare, revokeShare } from '@/api/shares'
 import { buildShareUrl } from '@/utils/favorite'
 import { downloadSharePoster } from '@/utils/poster'
@@ -35,6 +35,11 @@ const revoking = ref(false)
 const confirmingRevoke = ref(false)
 const revokedToken = ref<string | null>(null)
 const posterLoading = ref(false)
+/** 复制按钮的成功态：短暂变为「✓ 已复制」 */
+const copied = ref(false)
+let copiedTimer: number | undefined
+
+onBeforeUnmount(() => window.clearTimeout(copiedTimer))
 
 const link = computed(() => (token.value ? buildShareUrl(window.location.origin, token.value) : ''))
 
@@ -84,6 +89,12 @@ async function copyLink() {
   if (!link.value) return
   try {
     await navigator.clipboard.writeText(link.value)
+    // 原地成功态（阶段二）：按钮文案切换，比纯 Toast 更直接
+    copied.value = true
+    window.clearTimeout(copiedTimer)
+    copiedTimer = window.setTimeout(() => {
+      copied.value = false
+    }, 1600)
     toast.success('分享链接已复制')
   } catch {
     toast.error('复制失败，请手动选择链接复制')
@@ -166,7 +177,9 @@ async function onRevoke() {
             readonly
             @focus="selectLink"
           />
-          <button type="button" class="btn btn--secondary" @click="copyLink">复制链接</button>
+          <button type="button" class="btn btn--secondary" @click="copyLink">
+            {{ copied ? '✓ 已复制' : '复制链接' }}
+          </button>
         </div>
         <p class="share-tip">已有有效链接时会复用，不会重复生成；撤销后旧链接不可恢复。</p>
 
@@ -340,65 +353,5 @@ async function onRevoke() {
   margin-top: 24px;
 }
 
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 40px;
-  padding: 0 20px;
-  border-radius: var(--radius-full);
-  font-size: var(--text-small);
-  font-weight: 500;
-  cursor: pointer;
-  transition:
-    background 0.2s,
-    border-color 0.2s;
-}
-
-.btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.btn--primary {
-  border: 1px solid var(--color-primary);
-  background: var(--color-primary);
-  color: var(--color-text-inverse);
-}
-
-.btn--primary:hover:not(:disabled) {
-  background: var(--color-primary-hover);
-}
-
-.btn--secondary {
-  border: 1px solid var(--color-border-dark);
-  background: transparent;
-  color: var(--color-text-secondary);
-  white-space: nowrap;
-}
-
-.btn--secondary:hover:not(:disabled) {
-  background: var(--color-bg-muted);
-}
-
-.btn--danger {
-  border: 1px solid var(--color-error);
-  background: transparent;
-  color: var(--color-error);
-}
-
-.btn--danger:hover:not(:disabled) {
-  background: var(--color-error);
-  color: var(--color-text-inverse);
-}
-
-.btn--ghost {
-  border: none;
-  background: transparent;
-  color: var(--color-text-muted);
-}
-
-.btn--ghost:hover:not(:disabled) {
-  background: var(--color-bg-muted);
-}
+/* 按钮样式统一在全局 style.css（.btn / 各变体） */
 </style>
