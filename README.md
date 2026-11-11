@@ -16,7 +16,7 @@
 - 构建六大茶类的结构化知识库，茶品信息字段标准化、可筛选、可检索。
 - 打通「发现茶 → 查看详情 → 收藏 / 写笔记 / 分享」的 MVP 核心闭环。
 - 三种角色支撑：游客（只读浏览）、注册用户（收藏、笔记、分享）、管理员（茶品与小贴士维护）。
-- 建立规范驱动的工程体系：五层后端架构、统一 API 契约、安全控制项（S-01~S-32）、60 条测试用例与静态检查脚本。
+- 建立规范驱动的工程体系：五层后端架构、统一 API 契约、安全控制项（S-01~S-35）、90 条测试用例与静态检查脚本。
 
 **MVP 边界**（不在本期范围）：单一默认收藏清单「我的收藏」；3 维筛选（茶类 / 产地 / 季节，AND 逻辑）；链接分享；不做用户贡献内容与审核流程。第二阶段需求（PRD S1–S17）与暂不实现项（X1–X13）一律未开发。
 
@@ -49,7 +49,7 @@
 
 ### 3.4 接口概览
 
-统一前缀 `/api/v1`，统一响应体 `{ code, message, data }`。共 **29 个业务端点**（auth 5 / teas 6 / favorites 3 / lists 3 / shares 4 / admin 8）+ 1 个健康检查端点 `/api/v1/health`。完整契约见 [docs/api/API_CONTRACT.md](docs/api/API_CONTRACT.md) 与 [docs/api/openapi.yaml](docs/api/openapi.yaml)。
+统一前缀 `/api/v1`，统一响应体 `{ code, message, data }`。共 **65 个业务端点**（auth 5 / me 4 / teas 9 / tips 1 / favorites 3 / lists 6 / shares 4 / contributions 3 / contents 3 / admin 19 / 审计 2 / 用户 2 / 媒体 2 / 设置 2）+ 2 个健康检查端点（`/api/v1/health`、`/api/v1/health/ready`）。完整契约见 [docs/api/API_CONTRACT.md](docs/api/API_CONTRACT.md) 与 [docs/api/openapi.yaml](docs/api/openapi.yaml)。
 
 ## 4. 系统技术栈
 
@@ -138,7 +138,7 @@ python run.py
 
 - 开发模式监听 `http://127.0.0.1:8000`，开启热重载。
 - 接口文档（Swagger UI）：`http://127.0.0.1:8000/docs`
-- 健康检查：`GET http://127.0.0.1:8000/api/v1/health`，正常返回 `{"code":0,"message":"ok","data":{"status":"ok"}}`。
+- 健康检查：`GET http://127.0.0.1:8000/api/v1/health`（存活）返回 `{"code":0,"message":"ok","data":{"status":"ok"}}`；`GET /api/v1/health/ready`（就绪）在数据库可用时返回 `{"status":"ready"}`，否则 HTTP 503 + `code=50300`。
 
 ## 8. 前端启动方法
 
@@ -203,17 +203,17 @@ python -m app.scripts.rotate_admin_password --password "新密码"
 | 前端 lint / 类型 / 格式 / 构建 | `cd frontend; npm run lint; npm run typecheck; npm run format:check; npm run build` |
 | 全量静态检查（链接 / 常量 / 分层 / UI / 记录 / 密钥） | `python scripts/check_all.py` |
 
-测试用例依据 [docs/testing/TEST_PLAN.md](docs/testing/TEST_PLAN.md)（60 条用例：高 32 / 中 25 / 低 3），覆盖 29 个业务端点、7 张表约束与 32 项安全控制；后端测试使用真实 MySQL 测试库 `tea_guide_test`（与开发库隔离），断言同时检查 HTTP 状态码、业务 `code` 与数据库最终状态。详细逐条记录见 [docs/testing/TEST_REPORT.md](docs/testing/TEST_REPORT.md)。
+测试用例依据 [docs/testing/TEST_PLAN.md](docs/testing/TEST_PLAN.md)（90 条用例：高 51 / 中 36 / 低 3），覆盖 48 个业务端点、11 张表约束与 35 项安全控制；后端测试使用真实 MySQL 测试库 `tea_guide_test`（与开发库隔离），断言同时检查 HTTP 状态码、业务 `code` 与数据库最终状态。详细逐条记录见 [docs/testing/TEST_REPORT.md](docs/testing/TEST_REPORT.md)。
 
-### 10.2 测试结果（2026-11-09 实际执行）
+### 10.2 测试结果（最近一次执行：2026-11-11）
 
 | 项 | 结果 |
 |---|---|
-| 后端 pytest 全量 | **106 passed**（0 失败、0 跳过；含 20 线程并发收藏 / 分享真实并发用例） |
-| TEST_PLAN 60 条系统用例 | **60 / 60 通过，高优先级 32 / 32 通过**（2026-11-08 G5 系统测试 + 缺陷修复复测） |
-| 前端 Vitest | **30 passed**（4 个 spec 文件，纯函数用例） |
+| 后端 pytest 全量 | **174 passed**（0 失败、0 跳过；2026-11-11 实跑，含并发收藏 / 分享用例） |
+| TEST_PLAN 90 条用例 | **已按模块落地**；最近一次全量后端测试为 174 passed（2026-11-11，详见 [build-log.md](harness/build-log.md)） |
+| 前端 Vitest | **67 passed**（8 个 spec 文件，纯函数用例；2026-11-11 实跑） |
 | 前端 ESLint / vue-tsc / Prettier / 生产构建 | 全部通过（构建存在主 chunk >500 kB 体积告警，非失败） |
-| `scripts/check_all.py` 静态检查 | 全部通过（205 条文档链接、29/60/32/7 常量一致、五层分层 0 违规、153 个文件无敏感信息泄露） |
+| `scripts/check_all.py` 静态检查 | 除 `check_secrets.py`（本机无 git，未执行）外均通过：837 条文档链接有效、65/90/35/13 常量一致、五层 0 违规、前台 UI 0 违规 |
 | GitHub Actions CI | **未运行**（工作流已配置，尚未在远端实际执行，不标记为通过） |
 
 ## 11. 系统截图
