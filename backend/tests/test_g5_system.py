@@ -532,18 +532,23 @@ def test_tc_list_01_pagination_with_13_plus_active_teas():
         assert data1["page"] == 1 and data1["page_size"] == 12
         assert data1["total"] >= 13 and len(data1["items"]) == 12
 
-        page2 = TestClient(app).get("/api/v1/teas", params={"page": 2}).json()["data"]
-        assert len(page2["items"]) == data1["total"] - 12
+        # 茶品总数会随种子数据扩充，不能假设只有两页；逐页收集直到空页
         ids1 = [i["id"] for i in data1["items"]]
-        ids2 = [i["id"] for i in page2["items"]]
-        assert len(set(ids1 + ids2)) == data1["total"]
+        all_ids = list(ids1)
+        page = 2
+        while True:
+            data = (
+                TestClient(app)
+                .get("/api/v1/teas", params={"page": page, "page_size": 12})
+                .json()["data"]
+            )
+            if not data["items"]:
+                break
+            all_ids.extend(i["id"] for i in data["items"])
+            page += 1
+        assert len(all_ids) == data1["total"]
+        assert len(set(all_ids)) == data1["total"]
         assert ids1[:7] == list(reversed(created))
-
-        all_items = (
-            TestClient(app).get("/api/v1/teas", params={"page_size": 50}).json()["data"]["items"]
-        )
-        all_ids = [i["id"] for i in all_items]
-        assert set(all_ids) == set(ids1 + ids2)
     finally:
         for tea_id in created:
             _delete_tea(tea_id)
@@ -593,16 +598,24 @@ def test_tc_list_08_favorite_sort_secondary_id_desc():
             .get("/api/v1/teas", params={"sort": "favorite", "page": 1})
             .json()["data"]
         )
-        page2 = (
-            TestClient(app)
-            .get("/api/v1/teas", params={"sort": "favorite", "page": 2})
-            .json()["data"]
-        )
         ids1 = [i["id"] for i in page1["items"]]
-        ids2 = [i["id"] for i in page2["items"]]
         assert len(ids1) == 12
-        assert len(set(ids1 + ids2)) == total
-        assert set(ids1 + ids2) == set(ids)
+        # 总数会随种子扩充，逐页收集直到空页，避免写死页数
+        all_ids = list(ids1)
+        page = 2
+        while True:
+            data = (
+                TestClient(app)
+                .get("/api/v1/teas", params={"sort": "favorite", "page": page})
+                .json()["data"]
+            )
+            if not data["items"]:
+                break
+            all_ids.extend(i["id"] for i in data["items"])
+            page += 1
+        assert len(all_ids) == total
+        assert len(set(all_ids)) == total
+        assert set(all_ids) == set(ids)
     finally:
         for tea_id in [first, second] + extras:
             _delete_tea(tea_id)
@@ -611,10 +624,17 @@ def test_tc_list_08_favorite_sort_secondary_id_desc():
 def test_tc_list_09_categories_origins_exclude_off_shelf_and_clamp():
     db = SessionLocal()
     try:
-        yellow = db.query(Tea).filter(Tea.id == 3).first()
-        was_active = yellow.is_active
-        yellow.is_active = False
+        # 黄茶可能有多款，全部下架后计数才应为 0；同时记录原状态用于恢复
+        yellow_rows = db.query(Tea.id, Tea.is_active).filter(Tea.category == "yellow").all()
+        yellow_states = [(row.id, row.is_active) for row in yellow_rows]
+        db.query(Tea).filter(Tea.category == "yellow").update(
+            {"is_active": False}, synchronize_session=False
+        )
         db.commit()
+        expected_origins = {
+            row.origin.split(" ")[0]
+            for row in db.query(Tea.origin).filter(Tea.is_active.is_(True)).all()
+        }
     finally:
         db.close()
     try:
@@ -631,7 +651,8 @@ def test_tc_list_09_categories_origins_exclude_off_shelf_and_clamp():
         ]
 
         origins = TestClient(app).get("/api/v1/teas/origins").json()["data"]
-        assert "湖南" not in {o["origin"] for o in origins}
+        # 与“仅上架茶品”的产地去重集合完全一致，等价验证下架茶品被排除
+        assert {o["origin"] for o in origins} == expected_origins
 
         hot_zero = TestClient(app).get("/api/v1/teas/hot", params={"limit": 0}).json()["data"]
         hot_max = TestClient(app).get("/api/v1/teas/hot", params={"limit": 21}).json()["data"]
@@ -645,7 +666,8 @@ def test_tc_list_09_categories_origins_exclude_off_shelf_and_clamp():
     finally:
         db = SessionLocal()
         try:
-            db.query(Tea).filter(Tea.id == 3).update({"is_active": was_active})
+            for tea_id, was_active in yellow_states:
+                db.query(Tea).filter(Tea.id == tea_id).update({"is_active": was_active})
             db.commit()
         finally:
             db.close()
