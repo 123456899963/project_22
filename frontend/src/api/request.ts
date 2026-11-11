@@ -10,7 +10,8 @@ const request = axios.create({
 })
 
 // 不需要登录的路径（401 时不强制跳转，避免登录页自身死循环）
-const PUBLIC_PATHS = ['/auth/login', '/auth/register', '/auth/username-availability']
+// /auth/me 用于启动时校验会话，游客必然 401，属于正常态，不能弹「登录已过期」并跳转
+const PUBLIC_PATHS = ['/auth/login', '/auth/register', '/auth/username-availability', '/auth/me']
 
 // —— 响应拦截器：统一错误处理 ——
 request.interceptors.response.use(
