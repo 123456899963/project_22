@@ -9,3 +9,9 @@ def test_health_returns_ok() -> None:
     response = client.get("/api/v1/health")
     assert response.status_code == 200
     assert response.json() == {"code": 0, "message": "ok", "data": {"status": "ok"}}
+
+
+def test_health_ready_checks_database() -> None:
+    response = client.get("/api/v1/health/ready")
+    assert response.status_code == 200
+    assert response.json() == {"code": 0, "message": "ok", "data": {"status": "ready"}}
