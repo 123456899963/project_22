@@ -301,7 +301,7 @@ Nginx (80/443)
 | API 文档 | FastAPI 自动生成 `/docs`（Swagger UI）、`/redoc`（ReDoc） |
 | 后端日志 | `uvicorn` 自带 access log，SQLAlchemy 开启 `echo=True` 开发期打印 SQL |
 | 前端错误 | Axios 拦截器 → `ElMessage` Toast；Vue 全局 `app.config.errorHandler` 兜底 |
-| 健康检查 | `GET /api/v1/health` 返回 `{"status": "ok"}`，Nginx 反向代理健康探测可用 |
+| 健康检查 | `GET /api/v1/health`（存活，统一响应体）+ `GET /api/v1/health/ready`（就绪，数据库 `SELECT 1`，失败 503/50300）；Docker healthcheck 使用就绪探针 |
 
 ### 5.4 可维护性
 
