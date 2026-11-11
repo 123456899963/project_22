@@ -64,6 +64,7 @@ ADR 回答"**为什么选它、放弃了什么**"。当半年后有人问"为什
 | [ADR-0002](ADR-0002-enforce-norms-with-automation.md) | 用自动化闸门落实项目规范 | 已采纳 | 2026-11-07 | AGENTS.md §0/§3.1；DEVELOPMENT_GUIDE v1.2 |
 | [ADR-0003](ADR-0003-content-expansion.md) | 内容扩展（S4 图片集 / S5 视频 / R7 首页背景）数据模型与素材方案 | 已采纳 | 2026-11-09 | DATA_MODEL v1.1；API_CONTRACT v1.2；PLANS_扩展 |
 | [ADR-0004](ADR-0004-user-avatar-profile.md) | 用户头像与个人中心（`users.avatar_url` + 上传/预置双通道） | 已采纳 | 2026-11-10 | DATA_MODEL；API_CONTRACT；SECURITY S-35 |
+| [ADR-0005](ADR-0005-my-notes-list.md) | 个人中心品鉴笔记列表（`GET /me/notes`，每款茶 1 条） | 已采纳 | 2026-11-11 | API_CONTRACT v1.8；TEST_PLAN TC-ME-04 |
 
 > 新增 ADR 后必须在本表追加一行；本表与目录内文件不一致视为文档缺陷。
 
