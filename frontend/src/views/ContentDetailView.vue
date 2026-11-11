@@ -1,9 +1,13 @@
-<script setup lang="ts">
+﻿﻿<script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import AppHeader from '@/components/AppHeader.vue'
 import AppFooter from '@/components/AppFooter.vue'
+import ContentMetaBlock from '@/components/content/ContentMetaBlock.vue'
+import ReadingProgress from '@/components/content/ReadingProgress.vue'
+import ScrollReveal from '@/components/content/ScrollReveal.vue'
 import { getContentDetail, getContentTypes } from '@/api/contents'
+import { useScrollProgress } from '@/composables/useScrollProgress'
 import type { ContentItem, ContentTypeCode, ContentTypeItem } from '@/types'
 
 const route = useRoute()
@@ -17,10 +21,6 @@ const item = ref<ContentItem | null>(null)
 const types = ref<ContentTypeItem[]>([])
 const loading = ref(true)
 const notFound = ref(false)
-
-function isStr(v: unknown): v is string {
-  return typeof v === 'string' && v.length > 0
-}
 
 async function load() {
   loading.value = true
@@ -44,6 +44,23 @@ const currentType = computed(
   () => types.value.find((t) => t.code === typeCode.value) ?? null,
 )
 
+// 阅读进度 + 封面轻视差；减少动效时保持静止
+const { progress, scrollY } = useScrollProgress()
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+const coverStyle = computed(() =>
+  reduceMotion
+    ? {}
+    : { transform: `translateY(${Math.min(scrollY.value * 0.08, 32)}px) scale(1.04)` },
+)
+
+// 正文按空行拆段，每段进入视口时渐显
+const bodyParagraphs = computed(() =>
+  (item.value?.body ?? '')
+    .split(/\n{2,}/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean),
+)
+
 onMounted(load)
 
 // 同一路由记录下切换 id（如上一页/下一页、相关推荐）时实例被复用，需重新加载
@@ -58,6 +75,7 @@ watch(
 <template>
   <div class="content-detail-page">
     <AppHeader />
+    <ReadingProgress :progress="progress" />
 
     <main class="content-detail-page__main">
       <!-- 面包屑 -->
@@ -80,9 +98,9 @@ watch(
 
       <!-- 详情 -->
       <article v-else class="detail">
-        <!-- 封面图 -->
+        <!-- 封面图（随滚动轻微视差） -->
         <div v-if="item.cover_image" class="cover">
-          <img :src="item.cover_image" :alt="item.title" />
+          <img :src="item.cover_image" :alt="item.title" :style="coverStyle" />
         </div>
 
         <header class="detail__header">
@@ -90,89 +108,22 @@ watch(
           <p v-if="item.summary" class="detail__summary">{{ item.summary }}</p>
         </header>
 
-        <!-- 板块特有字段（meta JSON） -->
-        <section
+        <!-- 板块特有字段（meta JSON），渲染逻辑见 ContentMetaBlock -->
+        <ScrollReveal
           v-if="item.meta && Object.keys(item.meta).length > 0"
-          class="detail__meta"
         >
-          <!-- teaware: material / volume / category -->
-          <template v-if="typeCode === 'teaware'">
-            <dl v-if="isStr(item.meta.material)" class="meta-row">
-              <dt>材质</dt><dd>{{ item.meta.material as string }}</dd>
-            </dl>
-            <dl v-if="isStr(item.meta.volume)" class="meta-row">
-              <dt>容量</dt><dd>{{ item.meta.volume as string }}</dd>
-            </dl>
-            <dl v-if="isStr(item.meta.category)" class="meta-row">
-              <dt>分类</dt><dd>{{ item.meta.category as string }}</dd>
-            </dl>
-          </template>
+          <ContentMetaBlock :type-code="typeCode" :meta="item.meta" />
+        </ScrollReveal>
 
-          <!-- origin: province / region -->
-          <template v-if="typeCode === 'origin'">
-            <dl v-if="isStr(item.meta.province)" class="meta-row">
-              <dt>省份</dt><dd>{{ item.meta.province as string }}</dd>
-            </dl>
-            <dl v-if="isStr(item.meta.region)" class="meta-row">
-              <dt>产区</dt><dd>{{ item.meta.region as string }}</dd>
-            </dl>
-          </template>
-
-          <!-- culture: era / tags -->
-          <template v-if="typeCode === 'culture'">
-            <dl v-if="isStr(item.meta.era)" class="meta-row">
-              <dt>时期</dt><dd>{{ item.meta.era as string }}</dd>
-            </dl>
-            <dl v-if="Array.isArray(item.meta.tags) && (item.meta.tags as unknown[]).length" class="meta-row">
-              <dt>标签</dt>
-              <dd>
-                <span
-                  v-for="tag in item.meta.tags as string[]"
-                  :key="tag"
-                  class="tag"
-                >{{ tag }}</span>
-              </dd>
-            </dl>
-          </template>
-
-          <!-- brand: founded / brand_origin / website -->
-          <template v-if="typeCode === 'brand'">
-            <dl v-if="item.meta.founded" class="meta-row">
-              <dt>创立年份</dt><dd>{{ item.meta.founded }}</dd>
-            </dl>
-            <dl v-if="isStr(item.meta.brand_origin)" class="meta-row">
-              <dt>产地</dt><dd>{{ item.meta.brand_origin as string }}</dd>
-            </dl>
-            <dl v-if="isStr(item.meta.website)" class="meta-row">
-              <dt>官网</dt>
-              <dd><a :href="item.meta.website as string" target="_blank" rel="noopener">{{ item.meta.website as string }}</a></dd>
-            </dl>
-          </template>
-
-          <!-- knowledge: subtype / difficulty -->
-          <template v-if="typeCode === 'knowledge'">
-            <dl v-if="isStr(item.meta.subtype)" class="meta-row">
-              <dt>分类</dt>
-              <dd>{{ item.meta.subtype === 'standard' ? '茶叶标准' : '冲泡知识' }}</dd>
-            </dl>
-            <dl v-if="isStr(item.meta.difficulty)" class="meta-row">
-              <dt>难度</dt>
-              <dd>
-                {{
-                  item.meta.difficulty === 'beginner'
-                    ? '入门'
-                    : item.meta.difficulty === 'intermediate'
-                      ? '进阶'
-                      : '高级'
-                }}
-              </dd>
-            </dl>
-          </template>
-        </section>
-
-        <!-- 正文 -->
-        <section v-if="item.body" class="detail__body">
-          <p>{{ item.body }}</p>
+        <!-- 正文：按段落拆分，滚动进入视口时渐显 -->
+        <section v-if="bodyParagraphs.length" class="detail__body">
+          <ScrollReveal
+            v-for="(paragraph, index) in bodyParagraphs"
+            :key="index"
+            :delay="Math.min(index, 6) * 60"
+          >
+            <p>{{ paragraph }}</p>
+          </ScrollReveal>
         </section>
 
         <!-- 返回 -->
@@ -241,6 +192,7 @@ watch(
   display: block;
   max-height: 400px;
   object-fit: cover;
+  will-change: transform;
 }
 
 .detail__header {
@@ -262,35 +214,7 @@ watch(
   margin: 0;
 }
 
-.detail__meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px 40px;
-  margin-bottom: 40px;
-}
-.meta-row {
-  display: flex;
-  gap: 12px;
-  margin: 0;
-  font-size: var(--text-body);
-}
-.meta-row dt {
-  color: var(--color-text-muted);
-  min-width: 70px;
-}
-.meta-row dd {
-  color: var(--color-text-primary);
-  margin: 0;
-}
-.meta-row .tag {
-  display: inline-block;
-  padding: 2px 10px;
-  margin-right: 6px;
-  background: var(--color-bg-muted);
-  border-radius: var(--radius-full);
-  font-size: var(--text-small);
-  color: var(--color-text-secondary);
-}
+/* 板块 meta 字段样式在 components/content/ContentMetaBlock.vue 内 */
 
 .detail__body {
   font-size: var(--text-body);
@@ -308,17 +232,13 @@ watch(
   border-top: 1px solid var(--color-border-light);
 }
 
-@media (max-width: 767px) {
+@media (max-width: 640px) {
   .content-detail-page__main {
     padding: 0 16px 40px;
     margin-top: 76px;
   }
   .detail__title {
     font-size: var(--text-h2);
-  }
-  .detail__meta {
-    flex-direction: column;
-    gap: 8px;
   }
 }
 </style>
