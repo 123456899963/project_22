@@ -54,6 +54,28 @@ export interface UserStats {
   note_count: number
   share_count: number
   level: UserLevel
+  /** 六大茶类固定顺序、缺失补 0；只统计上架茶（API_CONTRACT §4.7.1） */
+  category_distribution: CategoryDistributionItem[]
+}
+
+/** 收藏茶类分布项（API_CONTRACT §4.7.1） */
+export interface CategoryDistributionItem {
+  category: TeaCategory
+  count: number
+}
+
+/** 个人中心品鉴笔记条目（API_CONTRACT §4.7.4）：同一茶品跨清单只返回 1 条 */
+export interface NoteItem {
+  tea_id: number
+  name: string
+  category: TeaCategory
+  origin: string
+  main_image_url: string | null
+  is_available: boolean
+  tasting_note: string
+  list_id: number
+  list_title: string
+  favorited_at: string
 }
 
 // ===== 茶品 =====
