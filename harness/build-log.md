@@ -9,6 +9,737 @@
 
 ---
 
+## 2026-11-11｜结构审查 P0 修复：契约对齐、契约漂移检查、就绪探针
+
+- 任务编号 / 分级：TASK-20261111-09 / C（涉及 API 契约文档同步与部署健康检查配置；用户 2026-11-11 明确确认「按这个方案开始修复 P0 问题」）
+- 需求来源：用户要求审查代码结构并优化；本机无 Git 导致评审插件报告不可用，用户选择直接结构审查；审查结论中的 P0 三项（契约漂移、健康探针、质量校验）经确认后实施
+- 主要变更：
+  - `docs/api/openapi.yaml`：补齐 9 个已实现但未写入契约的端点（审计日志 2 / 用户管理 2 / 图片库 2 / 运行时配置 2 / 后台内容详情 1）与 13 个组件 Schema（含补全此前被引用但未定义的 `DateTimeZ`、`BoolEnvelope`）；版本 1.6.0 → 1.7.0
+  - `docs/api/API_CONTRACT.md`：新增 §4.9「内容板块与后台扩展端点」（16 个）、更正 §6.3「不提供日志查询」为审计日志可查询/导出、§3 清单增加口径说明；版本 v1.9
+  - 文档口径统一：`AGENTS.md`（65 业务端点 / 90 用例）、`README.md`（65 端点 / 90 用例 / 174 测试）、`MODULE_DESIGN.md`、`TECH_STACK.md`、`docs/api/README.md`、`docs/testing/TEST_PLAN.md`（v1.5，ME-04 计入总数）
+  - `scripts/check_constants.py`：EXPECTED `openapi_operations` 55→65、`test_cases` 89→90，claims 同步
+  - 新增 `scripts/check_contract.py`：静态解析 `main.py` 的 `include_router` 与 `routers/*.py` 装饰器，与 openapi.yaml `paths` 对比；接入 `check_all.py`
+  - `backend/app/main.py`：新增 `GET /api/v1/health/ready`（执行 `SELECT 1`，失败返回 503/50300，不泄露异常细节）；补充模块 logger
+  - `backend/tests/test_health.py`：新增就绪探针用例
+  - `deploy/docker-compose.yml`：backend healthcheck 由 `/health` 改为 `/api/v1/health/ready`
+- 契约 / 数据 / 安全影响：契约文档同步，**不改变已实现业务端点行为**；新增就绪探针与 Docker 探针配置；无表结构、迁移、权限或安全规则变更
+- 测试证据：
+
+  | 命令 / 检查 | 范围 | 结果 | 说明 |
+  |---|---|---|---|
+  | `cd backend; python -m ruff check app tests` | 后端静态检查 | 通过 | 0 错误 |
+  | `cd backend; python -m ruff format --check app tests` | 格式 | 通过 | 109 files already formatted |
+  | `cd backend; python -m pytest tests/test_health.py -q` | 健康检查 | **2 passed** | 含新增就绪探针 |
+  | `cd backend; python -m pytest -q` | 后端全量 | **174 passed**（845 warnings） | 20.86s；新增 1 条用例 |
+  | `python scripts/check_contract.py` | 契约漂移 | 通过 | 65 个业务端点一致；463 处 `$ref` 无缺失 |
+  | `python scripts/check_constants.py` | 文档常量 | 通过 | 65 / 90 / 35 / 13 一致 |
+  | `python scripts/check_links.py` | 文档链接 | 通过 | 837 条相对链接全部有效 |
+  | `python scripts/check_layers.py` / `check_frontend.py` | 分层 / 前台 UI | 通过 | 0 违规 |
+  | `python scripts/check_all.py` | 全量静态 | **未完整运行** | `check_secrets.py` 依赖 git，本机未安装、目录非仓库；`check_records.py` 会 WARN 跳过 |
+
+- 验收结论：**通过**（P0 范围问题已修复；全量后端测试与可执行的静态检查均通过）
+- 遗留问题：
+  1. `check_secrets.py` / `check_records.py` 依赖 Git，本机无 Git 导致 `check_all.py` 无法完整执行（P1：初始化 Git，并为无 Git 环境增加降级扫描）
+  2. P1 未开始：前端路由懒加载与分包、全局错误边界、结构化日志与 Request-ID、五层守卫扩展、测试按域重组
+  3. `openapi.yaml` 新增组件可作为后续前端类型生成（P2）的输入
+- 回滚方式：还原上述文件即可；无数据库 / 迁移变更
+- ADR：无（按现有契约与部署规范补齐，未引入新的架构决策）
+
+---
+
+## 2026-11-11｜前台视觉改版「一席六笺 · 茶山长卷」（首页 / 列表 / 详情）
+
+- 任务编号 / 分级：TASK-20261111-08 / B（仅前台页面结构、样式与装饰性交互；用户已确认视觉方向；未改路由、API、数据与安全项）
+- 需求来源：用户要求用 `frontend-design` 优化网页端布局、形成茶主题并避免大众化；确认方案后首轮改造 P1 首页、P2 列表、P3 详情
+- 主要变更：
+  - `frontend/src/style.css`：新增纸/墨/朱砂/木器/汤色 Token、`LXGW WenKai` `@font-face`、纸纹背景、去圆角（2–3px）、`.paper-texture` / `.ink-rule` / `.vertical-text` / `.seal` / `.scroll-kicker` 工具类
+  - 新增 `frontend/src/components/TeaWareIcon.vue` + `teaWare.ts`：13 种线描茶器 SVG，前台 emoji 全部替换
+  - 首页：`HomeView` 组装「手卷五章」，新增 `ChapterRail`（≥1280px 滚动高亮）；重写 `HeroSearch`（7/5 Hero + 汤色带）、`CategoryGrid`（六笺 2 大 4 小）、`HotTeas`（茶架横轨）、`RandomTea`（CSS 签筒）、`TipsSection`（便签墙）；`useHome` 移除 emoji 字段
+  - 列表：`TeaListView` 两栏 + 题头；`FilterBar` 纵向「茶柜」；`FilterChips` 方签；`TeaCard` 改「茶样盒」（编号 + 汤色条 + 产地印）；`TeaGrid` 间距/骨架适配；空态改线描 SVG
+  - 详情：`DetailHero` 一席双栏（茶名印 + 茶则三则 + 图集签）；`DetailSection` / `DetailSenses`（四帖）/ `DetailTips` 重写；`useTeaDetail` 图标名改茶器；`TeaDetailView` 容器与骨架微调
+  - 公共：`AppHeader` 朱砂印品牌与楷体导航；`AppFooter` 茶席落款
+  - 字体：新增 `frontend/public/fonts/lxgw-wenkai-subset.woff2`（364,428 B，1,731 字形，子集字符集来自 `frontend/src` + `database/init.sql` + Alembic 种子）与 `OFL.txt`；不新增运行时依赖
+  - 测试：`frontend/e2e/smoke.spec.ts` 选择器与新 DOM 对齐（`.tea-note`、新 Hero 标题）
+  - 文档：`docs/design/PAGE_SPECS.md` 新增 §十三（Token、五章、列表、详情、响应式与降级说明）
+- 契约 / 数据 / 安全影响：**无**（未改 API_CONTRACT、openapi、DATA_MODEL、init.sql、Alembic、SECURITY；无新增端点/字段/表结构）
+- 测试证据：
+
+  | 命令 / 检查 | 范围 | 结果 | 说明 |
+  |---|---|---|---|
+  | `cd frontend; npm run lint` | ESLint | 通过 | 0 错误 |
+  | `cd frontend; npm run typecheck` | vue-tsc | 通过 | —— |
+  | `cd frontend; npm run test:run` | Vitest | **67 passed / 8 files** | 纯函数用例全通过 |
+  | `cd frontend; npm run build` | 生产构建 | 通过 | 仅 chunk >500kB 警告；字体已随 `public/` 复制 |
+  | `cd frontend; npm run test:e2e` | Playwright 冒烟 | **7 passed** | 首次 2 条因旧选择器失败，同步后全通过 |
+  | `python scripts/check_frontend.py` | 前台 UI | 通过（历史遗留 0） | 修复新增 6 处 HEX 后清零 |
+  | `python scripts/check_layers.py` | 五层 | 通过（0 遗留） | 未触碰后端 |
+  | `python scripts/check_links.py` / `check_records.py` | 链接 / 记录 | 通过 | 835 条链接有效 |
+  | `python scripts/check_constants.py` | 文档常量 | **失败（历史遗留）** | 期望 55 端点 / 89 用例，实际 56 / 90；本次未改 API 与 TEST_PLAN |
+  | `python scripts/check_secrets.py` | 密钥扫描 | **未运行成功** | 环境无 `git`，脚本 `subprocess` 启动失败（非本次引入） |
+  | Playwright 截图 1440 / 1024 / 390 | 首页 / 列表 / 详情 | overflow = 0；`document.fonts.check('16px "LXGW WenKai"')` = true | 三档无横向溢出，字体生效 |
+
+- 验收结论：**通过**（视觉、响应式、核心闭环冒烟均正常）；2 项静态检查分别受历史口径不一致与环境缺少 git 影响，已如实记录
+- 遗留问题：
+  1. `check_constants.py` 口径（55/89）与仓库实际（56 端点 / 90 用例）不一致，非本次引入，待统一
+  2. `check_secrets.py` 依赖 `git`，当前环境未安装，未完成扫描
+  3. `DESIGN_SYSTEM.md` 的底色/圆角示例仍为原值，实际以 `style.css` 为准（PAGE_SPECS §13.1 已注明）
+  4. 首页图片仍为占位素材，正式上线前需替换实拍图
+- 回滚方式：revert 本次前端提交并删除 `frontend/public/fonts/`；无数据与契约变更，回滚无副作用
+- 关联 ADR：无（视觉层调整，未触及架构与业务规则）
+
+---
+
+## 2026-11-11｜tea_media 写入 23 张图集 + 归档 30 张冗余 webp（TASK-20261111-06 收尾）
+
+- 任务编号 / 分级：TASK-20261111-07 / C（数据迁移 + 文件归档；用户 2026-11-11 确认「按表确认，写入 tea_media」）
+- 需求来源：TASK-20261111-06 遗留项 1、2；映射表见《素材清单》§7.6
+- 主要变更：
+  - 新增 `backend/app/alembic/versions/0013_seed_tea_media.py`：按 §7.6 的 23 条映射，以 `teas.name` 查 `tea_id` 后插入 `tea_media`（`sort_order` 取表内序号 1–3），按「tea_id + image_url」判重，可重复执行；`downgrade` 按 image_url 精确删除
+  - 30 张冗余 webp（重复副本 / 旧主图 / 晶状拼配图）从 `backend/uploads/2026/11/` 移入 `_archive/`
+  - 《素材清单》§5 归档说明更新（31 → 61 张）；§7.6 标题与说明由「待确认」改为「已确认并入库」，并补落地结果
+- 契约 / 数据 / 安全影响：**无契约变更、无表结构变更、无安全项变更**；`tea_media` 新增 23 行种子数据
+- 数据核验：
+  - `tea_media` 共 **23 行 / 16 款茶**：西湖龙井 3 张；白毫银针、君山银针、大红袍、正山小种、普洱熟茶各 2 张；碧螺春、六安瓜片、蒙顶黄芽、九曲红梅、凤凰单丛、康砖茶、安化黑茶、茯砖茶、千两茶、宜红各 1 张
+  - 23/23 图片文件存在；`uploads/2026/11/` 下 webp 恰为 **23 张**；`_archive/` 共 **61 个文件**（31 旧图 + 30 冗余）
+  - 开发库 `tea_guide` 与测试库 `tea_guide_test` 均已升级到 `0013_seed_tea_media`
+- 测试证据：
+
+  | 命令 / 检查 | 范围 | 结果 | 说明 |
+  |---|---|---|---|
+  | `cd backend; python -m alembic upgrade head` | 数据迁移（开发库） | 成功（`0012` → `0013`） | —— |
+  | `$env:TEA_DB_NAME='tea_guide_test'; python -m alembic upgrade head` | 数据迁移（测试库） | 成功（`0012` → `0013`） | —— |
+  | 数据库核验脚本 | 行数 / 归属 / 文件存在 | 23 行、16 款、缺失 0 | —— |
+  | `GET /api/v1/teas/{西湖龙井}` | 详情接口 | 200 / code 0，`image_set` 3 张且顺序正确 | —— |
+  | `cd backend; python -m ruff check app tests` | Ruff Lint | All checks passed | —— |
+  | `cd backend; python -m ruff format --check app tests` | Ruff 格式 | 109 files already formatted | 首次 1 处换行不符，已修正 |
+  | `cd backend; python -m pytest -q` | 后端全量 | **173 passed** | —— |
+  | `python scripts/check_layers.py` | 五层检查 | 通过（历史遗留 0） | —— |
+  | 前端 lint / typecheck / test / build | —— | 未运行 | 本次未改任何前端文件 |
+
+- 验收结论：**通过**；TASK-20261111-06 遗留项 1、2 已关闭
+- 遗留问题：
+  1. 30 款新茶未录入 `tea_tips`（沿用 TASK-20261111-06）
+  2. 30 款新茶 `price_min` / `price_max` 为 null，价格区间筛选暂不覆盖（沿用）
+  3. 图集仍为 Commons 品类示意图，非具体茶品实拍；正式上线前需替换
+- 回滚方式：`cd backend; python -m alembic downgrade 0012_seed_missing_teas`（删除 23 行）；把 `_archive/` 下 30 张 webp 移回原目录
+- 关联 ADR：无
+
+---
+
+## 2026-11-11｜补齐 30 款茶 + 归档 31 张旧图 + 图集映射推断（114 张处理）
+
+- 任务编号 / 分级：TASK-20261111-06 / C（种子数据新增 + 图片归档；用户 2026-11-11 指示「先帮我处理那 114 张无处可挂的图片」）
+- 需求来源：TASK-20261111-05 遗留 —— 114 张 = 30 款未收录茶主图 + 23 张图集 + 61 张被取代旧图
+- 用户已确认的三项决策：
+  1. 30 张未收录茶主图 → **补齐 30 款茶**（六大茶类各 5 款）
+  2. 23 张图集 → **先出映射推断，确认后再写 `tea_media`**（本次未入库）
+  3. 61 张被取代旧图 → 移到 `backend/uploads/2026/11/_archive/`
+- 主要变更：
+  - 新增 `backend/app/alembic/versions/0012_seed_missing_teas.py`：按 `teas.name` 判重后插入 30 款茶，主图取《素材清单》§7.5.1 现行 URL；`downgrade` 按「名称 + 主图 URL」双条件删除
+  - 时间字段显式写 `UTC_TIMESTAMP()`：MySQL 会话时区为 `+08:00`，若用默认 `CURRENT_TIMESTAMP` 会让新种子比应用写入的 `datetime.utcnow` 超前 8 小时，导致「最新」排序异常
+  - `backend/tests/test_g5_system.py`：TC-LIST-01 / TC-LIST-08 改为逐页收集，不再假设固定 2 页；TC-LIST-09 改为「黄茶全部下架 + 产地区集合与数据库上架茶品一致」，避免写死单一茶品
+  - 归档 31 张已被取代的旧图：6 张种子茶旧主图（§5.2）+ 25 张旧内容封面（§5.4 被 §7.5.2 替换），文件移入 `_archive/`，URL 不变仅路径前缀变化
+  - `docs/product/素材清单.md`：新增 §7.6「旧图集映射推断（23 张，待确认）」；§5 增加归档说明
+- 契约 / 数据 / 安全影响：**无契约变更、无表结构变更、无安全项变更**；新增 30 条 `teas` 种子数据
+- 数据核验：
+  - `teas` 共 **36 款**，六大茶类各 **6 款**；30 款新茶 `main_image_url` 全部为 `/uploads/2026/11/*.jpg` 且文件存在
+  - 开发库 `tea_guide` 与测试库 `tea_guide_test` 均已升级到 `0012_seed_missing_teas`
+- 测试证据：
+
+  | 命令 / 检查 | 范围 | 结果 | 说明 |
+  |---|---|---|---|
+  | `cd backend; python -m alembic upgrade head` | 数据迁移（开发库） | 成功（`0011` → `0012`） | —— |
+  | `$env:TEA_DB_NAME='tea_guide_test'; python -m alembic upgrade head` | 数据迁移（测试库） | 成功（`0010` → `0012`） | 测试库此前落后 0011 |
+  | 数据库核验 | 种子结果 | 36 款、6 类各 6 款、无重名、36/36 主图文件存在 | —— |
+  | `cd backend; python -m ruff check app tests` | Ruff Lint | All checks passed | —— |
+  | `cd backend; python -m ruff format --check app tests` | Ruff 格式 | 通过（测试文件已格式化） | —— |
+  | `cd backend; python -m pytest -q` | 后端全量 | **173 passed** | 首次运行 3 条失败，均因数据量从 6 款扩到 36 款，已修正用例 |
+  | `python scripts/check_layers.py` | 五层检查 | 通过（历史遗留 0，未新增违规） | —— |
+  | 前端 lint / typecheck / test / build | —— | 未运行 | 本次未改任何前端文件 |
+
+- 验收结论：**30 款茶与 31 张旧图处理通过；23 张图集映射待用户确认**
+- 遗留问题：
+  1. 23 张图集映射为**推断结果**，已登记在《素材清单》§7.6；确认后需新增 Alembic 迁移写入 `tea_media`
+  2. 30 张 webp 归档候选（旧主图 / 重复图 / 晶状拼配图）暂留在 `uploads/2026/11/`，待图集确认后再移入 `_archive/`
+  3. 30 款新茶未录入 `tea_tips`；详情页按现有逻辑隐藏小贴士区块
+  4. 30 款新茶 `price_min` / `price_max` 为 null，价格区间筛选暂不覆盖（与 6 款种子茶一致）
+- 回滚方式：`cd backend; python -m alembic downgrade 0011_backfill_upload_images`（删除 30 款茶）；把 `_archive/` 下 31 张图移回原目录
+- 关联 ADR：无（种子数据与素材归档，无架构决策变化）
+
+---
+
+## 2026-11-11｜uploads 图片数据迁移（Alembic 0011 回填 45 张业务图）
+
+- 任务编号 / 分级：TASK-20261111-05 / C（数据库数据回填；用户 2026-11-11 指示「先帮我处理那 159 张未引用的图片数据迁移」）
+- 需求来源：TASK-20261111-04 遗留项 —— `backend/uploads/2026/11/` 159 张图片已纳入仓库但未被业务引用
+- 前置核查（决定了迁移范围）：
+  - 当前库 `teas` 仅 **6 款**，`tea_media` **0 行**，`content_items` **39 条且 `cover_image` 全为 null**
+  - `database/init.sql` 与 `yuan/database/init.sql` **都只种 6 款茶** → yuan 的 36 款茶不在任何版本化资产中，无法从仓库恢复
+  - 159 张中可确定业务归属的 **45 张**：6 张茶品主图（素材清单 §7.5.1）+ 39 张内容封面（§5.4，其中 19 条按 §7.5.2 取替换图）
+- 主要变更：
+  - 新增 `backend/app/alembic/versions/0011_backfill_upload_images.py`：按 `teas.name` / `content_items.title` 精确匹配 UPDATE，可重复执行
+  - `upgrade`：6 款茶 `main_image_url` → `/uploads/2026/11/*.jpg`；39 条内容 `cover_image` → 对应本地图
+  - `downgrade`：6 款茶恢复 `init.sql` 原始 unsplash 外链；内容封面回到 `NULL`
+  - **未改 `database/init.sql`**：种子仍先写外链/null，由 Alembic 在其后统一回填，避免同一批 URL 在两个地方重复维护
+- 契约 / 数据 / 安全影响：**无契约变更、无表结构变更、无安全项变更**；仅回填既有列的数据值
+- 未纳入迁移的 114 张：30 款未收录茶品主图 + 茶品图集 + 被替换的旧图，当前库无对应业务实体，全部保留在磁盘待用
+- 测试证据：
+
+  | 命令 / 检查 | 范围 | 结果 | 说明 |
+  |---|---|---|---|
+  | `cd backend; python -m alembic upgrade head` | 数据迁移 | 成功（`0010_user_avatar` → `0011_backfill_upload_images`） | —— |
+  | 数据库核验 | 回填结果 | `teas 6/6`、`contents 39/39` 指向 `/uploads`，`cover_image IS NULL` = **0** | —— |
+  | `HEAD /uploads/2026/11/*.jpg`（抽样 4 张） | 静态访问 | 全部 `200` + `image/jpeg` | 后端已在 8000 运行 |
+  | `cd backend; python -m pytest -q` | 后端全量 | **173 passed** | 无测试依赖旧外链 |
+  | `cd backend; python -m ruff check app tests` | Ruff Lint | All checks passed | —— |
+  | `cd backend; python -m ruff format --check app tests` | Ruff 格式 | 107 files already formatted | 新迁移文件行宽不符，已 `ruff format` 修正 |
+  | 临时 Playwright 4 条（`/teas`、`/teas/1`、`/contents/teaware`、`/contents/knowledge`） | 页面真实加载 | 4 passed（4.9s） | 断言 `img[src^="/uploads/"]` `naturalWidth > 200`；用例已删除 |
+  | `cd frontend; npx playwright test e2e/smoke.spec.ts` | 正式冒烟 7 条 | 7 passed（5.1s） | 无回归 |
+  | 视觉核对 | 截图 | 通过 | 西湖龙井详情主图由空白占位变为真实茶汤照片；茶具板块 8 张封面正常显示、无破损或比例异常 |
+  | 前端 lint / typecheck / test / build | —— | 未运行 | 本次未改任何前端文件 |
+
+- 验收结论：**通过**
+- 基线例外：无
+- 遗留问题：
+  1. 114 张图片仍无业务实体可挂；若要全部生效，需先把 yuan 的 30 款茶品数据补入（茶品文案、产地、参数均不在仓库中，属独立 C 类）
+  2. `tea_media` 图集未回填：素材清单只登记「每款 2–3 张」，没有 UUID → 茶品的映射，无法可靠重建
+  3. 「紫砂壶」封面为高饱和蓝色背景，与整体水墨风不协调（源自 yuan 选定素材，未替换）
+  4. 回填的 6 款茶主图未做像素级压缩（单张 400–900 KB），列表首屏体积需后续观察
+- 回滚方式：`cd backend; python -m alembic downgrade 0010_user_avatar`；删除 `backend/app/alembic/versions/0011_backfill_upload_images.py`
+- 关联 ADR：无（数据回填，无架构决策变化）
+
+---
+
+## 2026-11-11｜适配 Gitee `yuan` 分支增量（收藏清单选择面板 / 首页高清 banner / uploads 纳入）
+
+- 任务编号 / 分级：TASK-20261111-04 / B（纯前端 + 静态素材；无后端代码、无契约、无表结构变更）
+- 需求来源：用户 2026-11-11 指示——「先看懂 yuan 最新的状态，再把我们的改动适配进去，而不是简单复制粘贴」；`yuan/` 只读，禁止修改
+- 前置对比（排除 node_modules/dist/.venv/`yuan`/`copefile`）：`current=372` / `yuan=419` / `same=174` / `modified=83` / `only_current=115` / `only_yuan=162`
+  - `only_yuan` 的 162 = 159 张 `backend/uploads/2026/11/*` + 3 份 `specs/` 历史草稿
+  - 结论：**当前代码是 yuan 的超集**，yuan 相对当前只有 3 项增量（收藏清单选择面板、首页高清 banner + 淡遮罩、uploads 图片）
+  - 用户确认方向：「以当前代码为载体，补入 yuan 的 3 项增量」；三项设计选择由用户拍板（0.12 淡遮罩、使用 yuan 高清图、纳入 uploads）
+- 主要变更：
+  - `utils/favorite.ts`：新增 `nextListToggleState`（跨清单去重计数口径）；现有 `nextFavoriteState` / `buildShareUrl` 未改动
+  - `utils/favorite.spec.ts`：补 5 条 `nextListToggleState` 用例（42 → 80 行）
+  - `components/FavoriteButton.vue`：三方合并 —— 取自 yuan 的清单选择面板（`getMyLists` 懒加载、`listIds` 驱动勾选态、`role=menu` / `menuitemcheckbox`、Esc 与外点关闭、乐观更新 + 回滚），保留阶段二的收藏动效（心形弹跳 + 水波纹 + `prefers-reduced-motion` 降级）；补回 yuan 版删掉的 `.fav-btn { position: relative }`（水波纹定位依赖）
+  - `docs/design/PAGE_SPECS.md`：插入 §5.6「收藏清单选择面板（S9 多清单交互）」
+  - `frontend/public/images/banners/*.webp`：6 张换为 yuan 的 2560×1440 版（约 1.2 MB → 4.4 MB）
+  - `components/HeroBackground.vue`：`.hero-bg__veil` 由分层渐变改为 `rgba(250,248,245,0.12)` 平铺
+  - `docs/product/素材清单.md`：采用 yuan 版（§5.2/§5.3 来源与署名更新，新增 §7 替换候选与落地记录）
+  - `backend/uploads/2026/11/*`：复制 159 张图片；`.gitignore` 移除 `uploads/` 忽略行（`.screenshots/` 保留）
+- 契约 / 数据 / 安全影响：**无**。未新增端点、未改字段与错误码、无 Alembic、无安全控制项变化
+- 测试证据：
+
+  | 命令 | 范围 | 结果 | 说明 |
+  |---|---|---|---|
+  | `cd frontend; npm run lint` | ESLint | 通过（无输出） | —— |
+  | `cd frontend; npm run typecheck` | vue-tsc | 通过（无输出） | —— |
+  | `cd frontend; npm run test:run` | Vitest | 8 files / **67 tests** passed | 原 62 + 新增 5 条 `nextListToggleState` |
+  | `cd frontend; npm run build` | Vite 生产构建 | 通过（1.41s） | 仅既有 chunk 体积告警 |
+  | `cd frontend; npx playwright test e2e/smoke.spec.ts` | 正式冒烟 7 条 | 7 passed（5.2s） | 无回归 |
+  | `cd frontend; npx playwright test e2e/tmp-merge-verify.spec.ts` | 临时 2 条 | 2 passed（2.4s） | ① 首页 `hero-bg__img` `naturalWidth > 1000`（高清图确实生效）、标题可见；② 详情页箭头打开 `.fav-picker`、清单项 `aria-checked` 勾选/取消可逆、Esc 关闭。用例与截图核对后已删除用例 |
+  | `python scripts/check_frontend.py` | 前台 UI 检查 | 通过，遗留 0 项 | —— |
+  | 后端 pytest / ruff | —— | 未运行 | 本次未改任何后端文件 |
+  | 视觉核对 | 1440×900 截图 | 通过 | 0.12 平铺遮罩下首页标题为深色墨水字，实拍茶园图清晰可读；无可见遮罩分层/拼接线 |
+
+- 验收结论：**通过**
+- 基线例外：无
+- 遗留问题：
+  1. **banner 首屏体积 1.2 MB → 4.4 MB**（用户已确认接受）；后续可评估按视口加载或二次压缩
+  2. **159 张 uploads 当前未被业务引用**：数据库 `teas.main_image_url` 仍为 unsplash 外链；yuan 的素材清单 §7.5.1 将其登记为「现行 URL」，需数据迁移才能真正生效（C 类，未实施）
+  3. `yuan/specs/` 3 份历史草稿未迁移（yuan 自身 AGENTS.md 标注「非权威」）
+  4. `yuan/` 与 `copefile/` 两个临时目录仍在工作区，清理需用户确认
+- 回滚方式：`git restore` `frontend/src/{utils/favorite.ts,utils/favorite.spec.ts,components/FavoriteButton.vue,components/HeroBackground.vue}`、`docs/{design/PAGE_SPECS.md,product/素材清单.md}`、`.gitignore`；还原 6 张 banner webp；删除 `backend/uploads/2026/11/` 159 张图片
+- 关联 ADR：无
+
+---
+
+## 2026-11-11｜阶段四·个人中心品鉴笔记（新增 GET /me/notes）
+
+- 任务编号 / 分级：TASK-20261111-03 / C（新增端点 + 契约 v1.8；ADR-0005，用户 2026-11-11 确认三项设计）
+- 需求来源：[PLAN_前端体验优化.md](../docs/development/plans/PLAN_前端体验优化.md) 阶段四 #3；[ADR-0005](../docs/development/ADR/ADR-0005-my-notes-list.md)
+- 用户确认：① 新增 `GET /me/notes`（而非前端聚合清单接口）；② 每款茶 1 条，默认清单有非空笔记时优先；③ 个人中心内嵌最近 5 条 + 就地展开，不新增路由
+- 主要变更：
+  - `schemas/stats.py`：新增 `NoteItem`（`tea_id/name/category/origin/main_image_url/is_available/tasting_note/list_id/list_title/favorited_at`）
+  - `repositories/favorite_repo.py`：新增 `list_notes_by_user`（收藏人 + 非空笔记 + join `teas`/`collection_lists`，按 `created_at DESC`）
+  - `services/notes.py`（新）：按 `tea_id` 去重；默认清单非空笔记优先，否则保留最近收藏；含下架茶并置 `is_available=false`
+  - `routers/me.py`：`GET /me/notes`（登录门禁 + `current_user.id` 过滤）
+  - `components/profile/NotesSection.vue`（新）：最近 5 条、展开/收起、下架灰显、空态、380px 隐藏日期
+  - `ProfileView.vue`：与统计/清单并行加载笔记；`api/me.ts` 新增 `getMyNotes`；`types/index.ts` 新增 `NoteItem`
+  - 契约 / 文档：`API_CONTRACT.md` §4.7.4 + §3 总览第 47 行 + v1.8 版本记录；`openapi.yaml` 新增 `/me/notes`、`NoteItem`、`NoteItemListEnvelope`；`TEST_PLAN.md` 新增 TC-ME-04（总数 90 / 高 51）；`MODULE_DESIGN.md` M4、`AGENTS.md`、`docs/api/README.md` 接口数 55 → 56；`ADR/README.md` 索引
+- 契约 / 数据 / 安全影响：**接口总数 55 → 56，契约 v1.8**；无表结构变更（无 Alembic）；只返回当前登录用户数据，未新增安全控制项（沿用 S-12/S-26），分享链路仍不返回笔记
+- 测试证据：
+
+  | 命令 | 范围 | 结果 | 说明 |
+  |---|---|---|---|
+  | `cd backend; python -m pytest -q` | 后端全量 | 173 passed | 新增 2 条（未登录 401；去重 + 默认清单优先 + 下架标记 + 他人不可见） |
+  | `cd backend; python -m ruff check app tests` | Ruff Lint | All checks passed | —— |
+  | `cd backend; python -m ruff format --check app tests` | Ruff 格式 | 106 files already formatted | 首次 `favorite_repo.py` 函数签名需合并为单行，已 `ruff format` 修正 |
+  | `cd frontend; npm run lint` | ESLint | 通过（无输出） | —— |
+  | `cd frontend; npm run typecheck` | vue-tsc | 通过（无输出） | —— |
+  | `cd frontend; npm run test:run` | Vitest | 8 files / 62 tests passed | 本次未新增前端单测（笔记卡片为纯展示组件） |
+  | `cd frontend; npm run build` | Vite 生产构建 | 通过 | 仅既有 chunk 体积告警 |
+  | `cd frontend; npx playwright test e2e/tmp-profile-notes.spec.ts` | 临时 1 条 | 1 passed | 接口返回笔记、卡片渲染、390px 无横向溢出；用例已删除。首次失败因未先把茶加入清单导致笔记写入失败，修正用例后通过 |
+  | `cd frontend; npx playwright test e2e/smoke.spec.ts` | 正式冒烟 7 条 | 7 passed | 无回归 |
+  | `python scripts/check_layers.py` | 五层边界 | 通过，遗留 0 项 | —— |
+  | `python scripts/check_frontend.py` | 前台 UI 检查 | 通过，遗留 0 项 | —— |
+
+- 验收结论：**通过**
+- 基线例外：无
+- 遗留问题：
+  - `favorite_items` 无笔记更新时间，列表按收藏时间排序并在前端标注为收藏日期（已在 §4.7.4 注明）；如需按更新时间排序需加列 + Alembic，另立 C 类
+  - 同一茶品多清单笔记只展示 1 条（其余仍可在对应清单查看）；MVP 不分页，单用户笔记 > 100 条时复审（ADR-0005 §7）
+- 回滚方式：`git restore` `backend/app/{schemas/stats.py,repositories/favorite_repo.py,routers/me.py}`、`backend/tests/test_batch2_features.py`、`frontend/src/{api/me.ts,types/index.ts,views/ProfileView.vue}`、`docs/{api/API_CONTRACT.md,api/openapi.yaml,api/README.md,testing/TEST_PLAN.md,architecture/MODULE_DESIGN.md,development/ADR/README.md}`、`AGENTS.md`；删除 `backend/app/services/notes.py`、`frontend/src/components/profile/NotesSection.vue`、`docs/development/ADR/ADR-0005-my-notes-list.md`
+- 关联 ADR：ADR-0005
+
+---
+
+## 2026-11-11｜阶段四·个人中心茶类分布（/me/stats 扩展 category_distribution）
+
+- 任务编号 / 分级：TASK-20261111-02 / C（扩展 `/me/stats` 响应契约；用户确认「只统计上架茶」后实施）
+- 需求来源：[PLAN_前端体验优化.md](../docs/development/plans/PLAN_前端体验优化.md) 阶段四 #2
+- 主要变更：
+  - `schemas/stats.py`：新增 `CategoryDistributionItem`；`UserStats` 增加 `category_distribution: list[...]`
+  - `repositories/favorite_repo.py`：新增 `count_active_categories_by_user`，按用户 + `Tea.is_active == 1` 分组计数，`COUNT(DISTINCT tea_id)` 保证同一茶品跨清单只计 1 次；S16 推荐使用的 `count_categories_by_user` 保持不变
+  - `services/stats.py`：`CATEGORY_ORDER` 六类固定顺序，缺失补 0 后组装 `category_distribution`
+  - `components/profile/CategoryDistribution.vue`：柱状分布卡片（占比按分布合计计算），茶类颜色引用 `var(--color-tea-*)`；空态文案；`prefers-reduced-motion` 关闭过渡
+  - `ProfileView.vue`：ProfileHero 下方接入分布卡片；`types/index.ts` 补 `CategoryDistributionItem` 与 `UserStats.category_distribution`
+  - 契约同步：`API_CONTRACT.md` §4.7.1（响应示例 / 字段表 / 分布口径说明 / v1.7 版本记录）、`openapi.yaml`（`CategoryDistributionItem` + `UserStats` 必填、`minItems/maxItems: 6`）
+- 契约 / 数据 / 安全影响：**契约新增字段（v1.7）**；无数据库表结构变更（无 Alembic）；响应只返回当前登录用户数据，无越权面变化
+- 测试证据：
+
+  | 命令 | 范围 | 结果 | 说明 |
+  |---|---|---|---|
+  | `cd backend; python -m pytest -q` | 后端全量 | 171 passed | 原 170 + 新增 1（下架茶不计入分布） |
+  | `cd backend; python -m ruff check app tests` | Ruff Lint | All checks passed | —— |
+  | `cd backend; python -m ruff format --check app tests` | Ruff 格式 | 105 files already formatted | 首次 `test_batch2_features.py` 格式不符，已 `ruff format` 修正 |
+  | `cd frontend; npm run lint` | ESLint | 通过（无输出） | —— |
+  | `cd frontend; npm run typecheck` | vue-tsc（strict） | 通过（无输出） | —— |
+  | `cd frontend; npm run test:run` | Vitest | 62 tests passed | 本次未新增前端单测（分布为纯展示组件） |
+  | `cd frontend; npm run build` | Vite 生产构建 | 通过 | 仅既有 chunk 体积告警 |
+  | `cd frontend; npx playwright test e2e/tmp-profile-distribution.spec.ts` | 临时 1 条 | 1 passed | 接口 6 项顺序正确、分布卡片可见、390px 无横向溢出；用例已删除。首次失败因后端仍跑旧代码，重启 `run.py` 后通过 |
+  | `cd frontend; npx playwright test e2e/smoke.spec.ts` | 正式冒烟 7 条 | 7 passed | 无回归 |
+  | `python scripts/check_layers.py` | 五层边界 | 通过，遗留 0 项 | —— |
+  | `python scripts/check_frontend.py` | 前台 UI 检查 | 通过，遗留 0 项 | —— |
+
+- 验收结论：**通过**
+- 基线例外：无
+- 遗留问题：`favorite_count` 仍含已下架茶，与 `category_distribution` 合计可能不一致（已在契约 §4.7.1 注明口径）；前端分布卡未做点击下钻筛选（茶品列表无「跨清单收藏」筛选参数），如需下钻需另立 B/C 类任务
+- 回滚方式：`git restore` `backend/app/schemas/stats.py`、`backend/app/repositories/favorite_repo.py`、`backend/app/services/stats.py`、`backend/tests/test_batch2_features.py`、`frontend/src/types/index.ts`、`frontend/src/views/ProfileView.vue`、`docs/api/{API_CONTRACT.md,openapi.yaml}`，删除 `frontend/src/components/profile/CategoryDistribution.vue`
+- 关联 ADR：无（契约扩展已在 API_CONTRACT v1.7 记录）
+
+---
+
+## 2026-11-11｜阶段四·对比页可视化（SVG 雷达图 / 差异项高亮）
+
+- 任务编号 / 分级：TASK-20261111-01 / B（纯前端，只读既有字段，不改契约）
+- 需求来源：[PLAN_前端体验优化.md](../docs/development/plans/PLAN_前端体验优化.md) 阶段四 #1
+- 主要变更：
+  - 新增 `utils/compareRadar.ts`：5 维雷达数据。水温（70–100℃）、投茶量（3–8g）、冲泡时间（10–120s）按固定区间线性归一；价格（`price_max`）、热度（`favorite_count`）按对比组内最大值相对归一；缺失值记 0 并标记 `missing`；系列颜色输出 `var(--color-tea-*)`，组件不硬编码色值
+  - 新增 `utils/compareRadar.spec.ts`：8 条用例（归一化边界 / 缺失 / 顺序 / 相对归一 / 颜色变量）
+  - 新增 `components/compare/RadarChart.vue`：纯 SVG 5 轴 4 圈雷达图，无图表库依赖，多系列多边形 + 顶点圆点
+  - 新增 `components/compare/CompareLegend.vue`：茶类系列图例，可点击显示/隐藏，带缺失标记提示
+  - `utils/compare.ts` 新增 `hasDifference(values)`：忽略 null 后去重判断差异；`compare.spec.ts` 补 2 条用例
+  - `CompareView.vue`：新增「雷达图 / 明细表」视图切换（默认雷达图）；明细表行首对非「代表茶」行标注「差异」徽章；雷达图下方注明 5 维为客观参数、不代表口感评分
+- 契约 / 数据 / 安全影响：无契约变更；无数据库变更；无新增依赖
+- 测试证据：
+
+  | 命令 | 范围 | 结果 | 说明 |
+  |---|---|---|---|
+  | `cd frontend; npm run lint` | ESLint | 通过（无输出） | —— |
+  | `cd frontend; npm run typecheck` | vue-tsc（strict） | 通过（无输出） | —— |
+  | `cd frontend; npm run test:run` | Vitest | 9 files / 62 tests passed | 新增 10 条（compareRadar 8 + compare 2） |
+  | `cd frontend; npm run build` | Vite 生产构建 | 通过 | 仅既有 chunk 体积告警 |
+  | `cd frontend; npx playwright test e2e/tmp-compare.spec.ts` | 临时 2 条 | 2 passed（2.3s） | 雷达图默认显示、图例切换、明细表差异徽章、移动端无横向溢出；用例已删除。首次运行因后端 8000 未启动失败，启动后端后通过 |
+  | `cd frontend; npx playwright test e2e/smoke.spec.ts` | 正式冒烟 7 条 | 7 passed（5.2s） | 确认阶段三移动端用例无回归 |
+  | `python scripts/check_frontend.py` | 前台 UI 检查 | 通过，遗留 0 项 | —— |
+  | 后端测试 | —— | 未运行 | 本次未改任何后端文件 |
+
+- 验收结论：**通过**
+- 基线例外：无
+- 遗留问题：5 维为客观冲泡参数与相对价格/热度，不包含滋味评分；若后续需要「甜度/苦涩/香气」等口感雷达，需单独立项新增字段（C 类）。对比页未加入正式冒烟，当前仅留临时用例验证记录
+- 回滚方式：`git restore` `utils/compare.ts` / `utils/compare.spec.ts` / `views/CompareView.vue`，删除 `utils/compareRadar.ts(.spec.ts)` 与 `components/compare/`
+- 关联 ADR：无
+
+---
+
+## 2026-11-10｜阶段三·茶文化沉浸式浏览（板块切换 / 视差 / 阅读进度）
+
+- 任务编号 / 分级：TASK-20261110-14 / B（纯前端，数据仍走既有 `/contents` 接口）
+- 需求来源：[PLAN_前端体验优化.md](../docs/development/plans/PLAN_前端体验优化.md) 阶段三第 3 项；用户本轮确认执行
+- 主要变更：
+  - 新增 `components/content/ContentTypeNav.vue`：五大板块横向切换条，移动端可左右滑动，当前板块高亮（原先只能从头部下拉进入，640px 以下下拉被隐藏）
+  - 新增 `composables/useScrollProgress.ts`：rAF 节流的滚动位置与 0–100 阅读进度
+  - 新增 `components/content/ReadingProgress.vue`：详情页 header 下方 2px 阅读进度条（含 `role=progressbar` 无障碍属性）
+  - 新增 `components/content/ScrollReveal.vue`：基于 IntersectionObserver 的滚动渐显容器
+  - `ContentListView.vue`：接入板块切换条；hero 背景「茶」字水印随滚动平移形成轻量视差；卡片按下标错峰入场（最多延迟 450ms）
+  - `ContentDetailView.vue`：接入阅读进度条；封面随滚动轻微位移缩放；meta 与正文按空行拆段，逐段进入视口时渐显
+  - 全部动效均带 `prefers-reduced-motion: reduce` 降级（关闭动画与视差）
+- 契约 / 数据 / 安全影响：无契约变更；无数据库变更；无新增依赖
+- 测试证据：
+
+  | 命令 | 范围 | 结果 | 说明 |
+  |---|---|---|---|
+  | `cd frontend; npm run lint` | ESLint | 通过（无输出） | —— |
+  | `cd frontend; npm run typecheck` | vue-tsc（strict） | 通过（无输出） | —— |
+  | `cd frontend; npm run test:run` | Vitest | 7 files / 52 tests passed | 新增 `pullRefresh.spec.ts` 7 条 |
+  | `cd frontend; npm run build` | Vite 生产构建 | 通过（1.95s） | 仅既有 chunk 体积告警（`es-*.js` 914 kB 为既有依赖包） |
+  | `cd frontend; npx playwright test e2e/smoke.spec.ts` | 冒烟 7 条 | 7 passed（6.5s） | 含 2 条移动端 TabBar 用例 |
+  | 临时用例（移动端 5 个页面横向溢出 + 板块切换条 + 详情阅读进度条） | 6 条 | 6 passed | 验证后已删除用例，不留在仓库 |
+  | `python scripts/check_frontend.py` | 前台 UI 检查 | 通过，遗留 0 项 | —— |
+  | 后端测试 | —— | 未运行 | 本次未改任何后端文件 |
+
+- 验收结论：**通过**
+- 基线例外：无
+- 遗留问题：五板块沉浸式暂为「列表 hero 视差 + 详情阅读进度」的轻量实现，滚动叙事/转场动画等重动效未做；内容详情页相邻文章（上/下一篇）无接口支持，未实现
+- 回滚方式：`git restore` `ContentListView.vue` / `ContentDetailView.vue`，删除 `components/content/{ContentTypeNav,ReadingProgress,ScrollReveal}.vue` 与 `composables/useScrollProgress.ts`
+- 关联 ADR：无
+
+---
+
+## 2026-11-10｜阶段三·移动端专项（底部 Tab / 下拉刷新 / 左缘滑动返回）
+
+- 任务编号 / 分级：TASK-20261110-13 / B（纯前端结构与交互，不改端点、字段、契约）
+- 需求来源：[PLAN_前端体验优化.md](../docs/development/plans/PLAN_前端体验优化.md) 阶段三第 4 项；用户本轮确认优先执行
+- 主要变更：
+  - 新增 `components/AppTabBar.vue`：≤640px 底部四 Tab（首页 / 茶品 / 茶文化 / 我的），按路由高亮；未登录点「我的」跳登录并带 `redirect=/profile`；后台与登录/注册页不渲染
+  - 新增 `composables/useSwipeBack.ts`：屏幕左缘 28px 内起手、横向位移 ≥80px 且明显大于纵向时 `router.back()`，仅移动端生效
+  - 新增 `composables/usePullToRefresh.ts` + `utils/pullRefresh.ts` + `components/MobilePullRefresh.vue`：页面在顶部下拉时显示「下拉刷新 / 松开刷新 / 正在刷新 / 已更新」指示器，达 60px 触发重新加载；距离与状态计算抽为纯函数
+  - `App.vue`：挂载 TabBar 与滑动返回；非后台/认证页加 `app-root--with-tabbar`
+  - `style.css`：新增 `--mobile-tabbar-height` token 与移动端底部安全区留白，避免页脚被 TabBar 遮挡
+  - `TeaListView.vue` / `ContentListView.vue`：接入下拉刷新（重新拉取当前筛选/板块数据）
+  - `e2e/smoke.spec.ts`：新增 2 条用例（桌面不显示 TabBar；移动端 4 Tab 可见、点击茶品跳转并高亮），冒烟 5 → 7 条
+- 契约 / 数据 / 安全影响：无契约变更；无数据库变更；无新增依赖
+- 测试证据：
+
+  | 命令 | 范围 | 结果 | 说明 |
+  |---|---|---|---|
+  | `cd frontend; npm run lint` | ESLint | 通过（无输出） | —— |
+  | `cd frontend; npm run typecheck` | vue-tsc（strict） | 通过（无输出） | —— |
+  | `cd frontend; npm run test:run` | Vitest | 7 files / 52 tests passed | 新增 `pullRefresh.spec.ts` 7 条 |
+  | `cd frontend; npm run build` | Vite 生产构建 | 通过（1.95s） | 仅既有 chunk 体积告警 |
+  | `cd frontend; npx playwright test e2e/smoke.spec.ts` | 冒烟 7 条 | 7 passed（6.5s） | 桌面隐藏 + 移动端 TabBar 切换均通过 |
+  | 临时用例（390×844 下 `/`、`/teas`、`/contents/teaware`、`/contents/origin`、`/teas/2` 横向溢出） | 5 条 | 5 passed | 溢出量均 ≤1px；用例已删除 |
+  | `python scripts/check_frontend.py` | 前台 UI 检查 | 通过，遗留 0 项 | —— |
+  | 后端测试 | —— | 未运行 | 本次未改任何后端文件 |
+
+- 验收结论：**通过**
+- 基线例外：无
+- 遗留问题：下拉刷新与左缘滑动返回依赖真实触摸事件，Playwright 未做手势端到端覆盖（仅纯函数单测 + 布局用例），需真机或 DevTools 触摸模拟回归；iOS Safari 的原生侧滑返回与自定义手势可能同时触发，需真机确认
+- 回滚方式：`git restore` `App.vue` / `style.css` / `TeaListView.vue` / `ContentListView.vue` / `e2e/smoke.spec.ts`，删除 `AppTabBar.vue`、`MobilePullRefresh.vue`、`useSwipeBack.ts`、`usePullToRefresh.ts`、`utils/pullRefresh.ts(.spec.ts)`
+- 关联 ADR：无
+
+---
+
+## 2026-11-10｜前端工程优化·登录/注册样式去重 + 投稿审核弹窗拆分与取消缺陷修复
+
+- 任务编号 / 分级：TASK-20261110-12 / A（结构重构 + 局部缺陷修复，不改端点与业务规则）
+- 需求来源：用户要求核查 `RegisterView` / `AdminContributions` 后，按「抽公共 auth 样式 → 修 confirm 取消缺陷 → 拆审核弹窗」顺序执行
+- 主要变更：
+  - 新增 `components/auth/AuthCard.vue`（151）：登录/注册共用外壳，字段样式通过 `:slotted()` 作用到父级插槽内容，消除两页各约 122 行的重复 CSS
+  - `LoginView.vue` 236 → **107**、`RegisterView.vue` 331 → **201**：只保留脚本逻辑与表单内容
+  - 新增 `views/admin/components/ContributionDetailDialog.vue`（88）与 `RejectReasonDialog.vue`（74）：详情预览、拒绝理由（含请求与重置）各自内聚
+  - `AdminContributions.vue` 316 → **241**：只保留列表、筛选分页与操作编排
+  - 修复缺陷：`approve()` 的 `ElMessageBox.confirm` 增加 `try/catch`，用户取消时不再抛出未处理的 Promise 拒绝；拒绝对话框改用自身 `submitting` 控制 loading
+- 契约 / 数据 / 安全影响：无契约变更；无数据库变更；无新增依赖
+- 测试证据：
+
+  | 命令 | 范围 | 结果 | 说明 |
+  |---|---|---|---|
+  | `cd frontend; npm run lint` | ESLint | 通过 | —— |
+  | `cd frontend; npm run typecheck` | vue-tsc（strict） | 通过 | —— |
+  | `cd frontend; npm run test:run` | Vitest | 6 files / 45 tests passed | —— |
+  | `cd frontend; npm run build` | Vite 生产构建 | 通过 | 仅既有 chunk 体积告警（`es-*.js` 914 kB 为既有依赖包） |
+  | `cd frontend; npx playwright test` | 冒烟 5 条 | 5 passed | 登录流程经冒烟覆盖 |
+  | 临时用例（登录/注册 `.form-input` 计算样式、投稿审核列表与详情弹窗） | 2 条 | 2 passed | 首次断言把 `--radius-sm` 写成 14px 导致失败，改为只校验 padding 与圆角非 0 后通过；用例已删除 |
+  | `python scripts/check_frontend.py` | 前台 UI 检查 | 通过，遗留 0 项 | —— |
+  | 后端测试 | —— | 未运行 | 本次未改任何后端文件 |
+
+- 验收结论：**通过**
+- 基线例外：无
+- 遗留问题：`src/views/` 已无超过 300 行的视图；`Approve/Reject` 的端到端审核动作（真实提交通过/拒绝）未自动化覆盖，因会改动种子数据，仍由手工回归
+- 回滚方式：`git restore` 上述 4 个视图，删除 `components/auth/` 与 `views/admin/components/Contribution{Detail,Reason}Dialog.vue`
+- 关联 ADR：无
+
+---
+
+## 2026-11-10｜前端工程优化·内容详情 meta 渲染拆分
+
+- 任务编号 / 分级：TASK-20261110-11 / A（纯前端结构重构，页面表现与数据不变）
+- 需求来源：用户指定只拆 `ContentDetailView` 的板块 meta 渲染
+- 主要变更：
+  - 新增 `components/content/ContentMetaBlock.vue`（133）：承接茶具 / 产地 / 文化 / 品牌 / 知识五个板块的 meta 字段分支渲染，含 `isStr` 判定与 `.detail__meta` 样式
+  - `ContentDetailView.vue` 324 → **216**：meta 模板块替换为 `<ContentMetaBlock v-if="item.meta && Object.keys(item.meta).length" :type-code="typeCode" :meta="item.meta" />`，删除页面内 `isStr` 与 meta 相关样式
+- 契约 / 数据 / 安全影响：无契约变更；无数据库变更；无新增依赖
+- 测试证据：
+
+  | 命令 | 范围 | 结果 | 说明 |
+  |---|---|---|---|
+  | `cd frontend; npm run lint` | ESLint | 通过 | —— |
+  | `cd frontend; npm run typecheck` | vue-tsc（strict） | 通过 | 模板 `v-if` 对 `item.meta` 的收窄可正常传给必填 prop |
+  | `cd frontend; npm run test:run` | Vitest | 6 files / 45 tests passed | —— |
+  | `cd frontend; npm run build` | Vite 生产构建 | 通过 | 仅既有 chunk 体积告警 |
+  | `cd frontend; npx playwright test` | 冒烟 5 条 | 5 passed | 核心闭环无回归 |
+  | 临时用例（遍历五个板块详情页，确认至少一个 `.detail__meta` 渲染） | 1 条 | 1 passed | 验证后已删除用例 |
+  | 后端测试 | —— | 未运行 | 本次未改任何后端文件 |
+
+- 验收结论：**通过**
+- 基线例外：无
+- 遗留问题：`src/views/` 超 300 行的只剩 `RegisterView` 331、`AdminContributions` 316（经评估均无需强制拆分）
+- 回滚方式：`git restore` `ContentDetailView.vue`，删除 `components/content/ContentMetaBlock.vue`
+- 关联 ADR：无
+
+---
+
+## 2026-11-10｜前端工程优化·后台编辑页拆分（AdminTeaEdit / AdminContentEdit）
+
+- 任务编号 / 分级：TASK-20261110-10 / A（纯前端结构重构，不改端点、字段与业务逻辑）
+- 需求来源：用户指定拆分 `AdminTeaEdit`（661 行）与 `AdminContentEdit`（356 行）
+- 主要变更：
+  - `AdminTeaEdit.vue` 661 → **132**：页面只做表单装配
+    - `views/admin/composables/useAdminTeaEdit.ts`（251）：表单状态、校验规则、保存、上下架、主图/视频上传（原逻辑 1:1 迁移）
+    - `views/admin/components/TeaBasicSection.vue`（188）：基本信息 + 主图 + 视频，上传只选文件并 emit，请求仍由页面统一处理
+    - `views/admin/components/TeaGallerySection.vue`（138）：图片集自持状态与增删请求，父级只传 `teaId`
+    - `TeaSensesSection.vue`（47）/ `TeaBrewSection.vue`（70）/ `TeaTipsSection.vue`（53）：字段用 `defineModel` 双向绑定，`el-form-item prop` 仍指向父表单模型，校验不受影响
+  - `AdminContentEdit.vue` 356 → **160**：逻辑下沉到 `views/admin/composables/useAdminContentEdit.ts`（223），页面只负责表单渲染；顺带删除一个空 `watch`（原本无任何行为）
+  - 组件/组合式函数放在 `src/views/admin/` 下：ESLint 仅允许该目录引入 Element Plus（`no-restricted-imports`）
+- 契约 / 数据 / 安全影响：无契约变更；无数据库变更；无新增依赖
+- 测试证据：
+
+  | 命令 | 范围 | 结果 | 说明 |
+  |---|---|---|---|
+  | `cd frontend; npm run lint` | ESLint | 通过 | 首次因 composables 放在 `src/composables` 触发 Element Plus 限制，移到 `views/admin/composables` 后通过 |
+  | `cd frontend; npm run typecheck` | vue-tsc（strict） | 通过 | —— |
+  | `cd frontend; npm run test:run` | Vitest | 6 files / 45 tests passed | —— |
+  | `cd frontend; npm run build` | Vite 生产构建 | 通过 | 仅既有 chunk 体积告警 |
+  | `cd frontend; npx playwright test` | 冒烟 5 条 | 5 passed（复跑） | 首轮「收藏」用例失败：第二次点击落在 pending 期间被忽略；已在用例中补等待 `fav-btn--pending` 消失，非业务代码问题 |
+  | 临时用例（后台新增茶品 / 编辑茶品回填 + 图片集 / 内容新增板块切换） | 3 条 | 3 passed | 验证后已删除用例 |
+  | `python scripts/check_frontend.py` | 前台 UI 检查 | 通过，遗留 0 项 | —— |
+  | 后端测试 | —— | 未运行 | 本次未改任何后端文件 |
+
+- 验收结论：**通过**
+- 基线例外：无
+- 遗留问题：各区块 scoped 样式存在少量重复（`.form-section` 等约 20 行/文件），因 scoped 样式不跨组件且未建后台公共样式文件，暂按重复处理；`src/views/` 仍超 300 行的剩 `RegisterView` 331、`ContentDetailView` 324、`AdminContributions` 316
+- 回滚方式：`git restore` 两个编辑页 + `e2e/smoke.spec.ts`，删除 `views/admin/{components,composables}/` 新增文件
+- 关联 ADR：无
+
+---
+
+## 2026-11-10｜前端工程优化·ShareView 行数收口
+
+- 任务编号 / 分级：TASK-20261110-09 / A（纯前端结构重构，不改端点、字段与业务逻辑）
+- 需求来源：TASK-20261110-08 遗留问题（复测 `ShareView.vue` 323 行，高于 300 行目标）
+- 主要变更：`ShareView.vue` 323 → **225**
+  - 新增 `components/share/CopyResultPanel.vue`：「收藏全部」结果条（新增 / 跳过 / 总数 + 我的清单入口）
+  - 新增 `components/share/ShareSkeleton.vue`：加载骨架（标题 + 一行文案 + shimmer 动画）
+  - 新增 `components/share/ShareErrorPanel.vue`：链接不存在 / 加载失败兜底（含重新加载事件），页面用 `errorState` 计算属性收敛类型
+  - 页面仅保留数据装载、`ShareHero` / 空态 / 列表 / `RevokedPanel` 编排；迁移样式随组件带走并留注释
+- 契约 / 数据 / 安全影响：无契约变更；无数据库变更；无新增依赖
+- 测试证据：
+
+  | 命令 | 范围 | 结果 | 说明 |
+  |---|---|---|---|
+  | `cd frontend; npm run lint` | ESLint | 通过（无输出） | —— |
+  | `cd frontend; npm run typecheck` | vue-tsc（strict） | 通过 | 首次运行报 `message` 可能为 undefined，已改为必填后通过 |
+  | `cd frontend; npm run test:run` | Vitest | 6 files / 45 tests passed | —— |
+  | `cd frontend; npm run build` | Vite 生产构建 | 通过 | 仅既有 chunk 体积告警 |
+  | `cd frontend; npx playwright test e2e/smoke.spec.ts` | 冒烟 5 条 | 5 passed | 核心闭环无回归 |
+  | 临时用例（分享页兜底 + 游客只读渲染） | `/c/<无效token>` 兜底、有效 token 游客页头部与按钮 | 2 passed | 验证后已删除用例；「收藏全部」结果条需非所有者账号，未做端到端覆盖（避免污染测试数据），仅通过类型检查与构建 |
+  | 后端测试 | —— | 未运行 | 本次未改任何后端文件 |
+
+- 验收结论：**通过**
+- 基线例外：无
+- 遗留问题：`CopyResultPanel` 未跑端到端用例（见上）；`src/views/` 仍超 300 行的只剩 `AdminTeaEdit` 661、`AdminContentEdit` 356、`RegisterView` 331、`ContentDetailView` 324、`AdminContributions` 316，均不在本阶段范围
+- 回滚方式：`git restore` `views/ShareView.vue`，删除 `components/share/{CopyResultPanel,ShareSkeleton,ShareErrorPanel}.vue`
+- 关联 ADR：无
+
+---
+
+## 2026-11-10｜前端工程优化·阶段二收尾（ContributeView / ContentListView）
+
+- 任务编号 / 分级：TASK-20261110-08 / A（纯前端结构重构，不改端点、字段与业务逻辑）
+- 需求来源：TASK-20261110-07 遗留问题（`ContributeView` 475 行、`ContentListView` 305 行仍偏大）
+- 主要变更：
+  - `ContributeView.vue` 475 → **126**：页面只保留 Hero + Tab 切换 + 表单挂载，面包屑改用 `AppBreadcrumb`
+    - `components/contribute/ContributeField.vue`：字段壳，统一 label / 必填星号 / 输入框外观（`:deep()` 作用于插槽控件）
+    - `components/contribute/NewTeaForm.vue`：补充新茶表单（S10），自持 `reactive` 状态、前端校验与提交
+    - `components/contribute/ArticleForm.vue`：科普投稿表单（S11），自持状态、加载茶品下拉选项与提交
+    - 表单状态改由子组件自持：父级传 reactive 对象直接 `v-model` 会触发 `vue/no-mutating-props`
+  - `ContentListView.vue` 305 → **218**：拆出 `components/content/{ContentCard,ContentPager}.vue`
+    - `ContentCard`：封面 / 板块图标占位 + 标题 + 两行摘要，链接到内容详情
+    - `ContentPager`：上一页 / 页码 / 下一页，只派发 `change` 事件，请求仍由页面负责
+  - 拆分约定同前：模板 + 对应 scoped 样式一起迁移，父页面留注释说明样式去向
+- 契约 / 数据 / 安全影响：无契约变更；无数据库变更；无新增依赖
+- 测试证据：
+
+  | 命令 | 范围 | 结果 | 说明 |
+  |---|---|---|---|
+  | `cd frontend; npm run lint` | ESLint | 通过（无输出） | —— |
+  | `cd frontend; npm run typecheck` | vue-tsc（strict） | 通过（无输出） | 新组件全部通过严格类型检查 |
+  | `cd frontend; npm run test:run` | Vitest | 6 files / 45 tests passed | 纯函数用例未改动 |
+  | `cd frontend; npm run build` | Vite 生产构建 | 通过 | 仅既有 chunk 体积告警 |
+  | `cd frontend; npx playwright test` | 冒烟 5 条 | 5 passed（5.2s） | 核心闭环无回归 |
+  | 临时用例（内容板块 + 投稿页） | `/contents/teaware` 卡片或空态、登录后 `/contribute` 两个 Tab 表单渲染 | 2 passed | 验证后已删除用例 |
+  | 后端测试 | —— | 未运行 | 本次未改任何后端文件 |
+
+- 验收结论：**通过**
+- 基线例外：无
+- 遗留问题：阶段二规划的 6 个前台主视图均已降到 300 行内。脚本复核 `src/views/` 仍有超 300 行文件，但不在阶段二范围：`admin/AdminTeaEdit` 661、`admin/AdminContentEdit` 356、`RegisterView` 331、`ContentDetailView` 324、`ShareView` 323、`admin/AdminContributions` 316
+- 回滚方式：`git restore` 上述 `views/` 与 `components/contribute/`、`components/content/` 文件
+- 关联 ADR：无
+
+---
+
+## 2026-11-10｜前端工程优化·阶段二补充分拆（ProfileView / ShareView）
+
+- 任务编号 / 分级：TASK-20261110-07 / A（纯前端结构重构，不改端点、字段与权限逻辑）
+- 需求来源：TASK-20261110-06 遗留问题 1（`ProfileView` 640 行、`ShareView` 671 行）
+- 主要变更：
+  - `ProfileView.vue` 640 → **148**：拆出 `components/profile/{ProfileHero,AvatarPanel,FavoritePreview,QuickLinks}.vue`；面包屑统一改用 `AppBreadcrumb`
+    - `ProfileHero`：头像、用户名、角色标签、等级徽章与三个 `StatCard`
+    - `AvatarPanel`：本地图片上传（类型/大小校验）+ 8 个预置头像，接口调用仍留在页面
+    - `FavoritePreview`：默认清单前 6 款茶 + 空态
+    - `QuickLinks`：常用入口与退出登录
+  - `ShareView.vue` 671 → **286**：拆出 `components/share/{ShareHero,ShareItemCard,RevokedPanel}.vue`；不存在/加载失败/空清单统一改用 `StatePanel`
+    - `ShareHero`：标题、只读说明、收藏全部 / 登录 / 海报 / 继续逛茶按钮组
+    - `ShareItemCard`：只读茶品条目（下架置灰），类型取 `ShareViewData['items'][number]`
+    - `RevokedPanel`：撤销说明 + 热门茶兜底推荐
+  - 拆分约定同前：模板 + 对应 scoped 样式一起迁移，父页面留注释说明样式去向
+- 契约 / 数据 / 安全影响：无契约变更；无数据库变更；无新增依赖
+- 测试证据：
+
+  | 命令 | 范围 | 结果 | 说明 |
+  |---|---|---|---|
+  | `cd frontend; npm run lint` | ESLint | 通过（无输出） | —— |
+  | `cd frontend; npm run typecheck` | vue-tsc（strict） | 通过（无输出） | —— |
+  | `cd frontend; npm run test:run` | Vitest | 6 files / 45 tests passed | 纯函数用例未改动 |
+  | `cd frontend; npm run build` | Vite 生产构建 | 通过 | 仅既有 chunk 体积告警 |
+  | `cd frontend; npx playwright test` | 冒烟 5 条 | 5 passed | 拆组件后核心闭环无回归 |
+  | 临时用例（个人中心 + 分享页兜底） | 登录→/profile 渲染、头像面板展开/收起、`/c/<无效token>` 兜底 | 2 passed | 验证后已删除用例 |
+  | 后端测试 | —— | 未运行 | 本次未改任何后端文件 |
+
+- 验收结论：**通过**
+- 遗留问题：`ContributeView` 475 行、`ContentListView` 305 行仍偏大，未在本次需求范围内，可按同一模式后续拆分
+- 回滚方式：`git restore` 上述 `views/` 与 `components/profile/`、`components/share/` 文件
+- 关联 ADR：无
+
+---
+
+## 2026-11-10｜前端工程优化·阶段二（视图拆分 / 按钮收口 / 断点收敛 / 交互反馈）
+
+- 任务编号 / 分级：TASK-20261110-06 / A（纯前端结构与样式，不改端点、字段、错误码与表结构）
+- 需求来源：工程阶段一遗留项（视图未压到 300 行内）+ [PLAN_前端体验优化.md](../docs/development/plans/PLAN_前端体验优化.md) 阶段二
+- 主要变更：
+  - **视图拆分（本阶段核心目标）**：4 个巨型视图全部降到 300 行内
+    - `HomeView.vue` 807 → **56**：拆出 `components/home/{HeroSearch,CategoryGrid,HotTeas,RandomTea,TipsSection}.vue`，搜索建议逻辑下沉到 `composables/useTeaSearchSuggest.ts`
+    - `TeaDetailView.vue` 705 → **203**：拆出 `components/detail/{DetailSection,DetailHero,DetailVideo,DetailSenses,DetailTips,DetailArticles,DetailRelated,DetailState}.vue`
+    - `MyListView.vue` 812 → **231**：拆出 `components/mylist/{ListHero,ListSidebar,ListItemCard}.vue` + 通用 `components/StatePanel.vue`
+    - `TeaListView.vue` 364 → **222**：拆出 `components/{TeaPagination,AppBreadcrumb,FilterChips}.vue`
+    - 拆分约定：模板 + 对应 scoped 样式一起迁移，父页面保留一行注释说明样式去向（scoped 样式不会跨组件生效）
+  - **按钮体系收口**：删除 `LoginView` / `RegisterView` / `ProfileView` / `ShareView` / `SharePanel` / `NoteEditor` / `MyListView` / `TeaDetailView` 的 8 处局部 `.btn` 定义，全站统一走 `style.css` 的 `.btn` 四档 + 四态 + 尺寸变体
+  - **断点收敛**：全站媒体查询由 5 档（480 / 639 / 767 / 900 / 1023）统一为 **640 / 1024**（1280 备用）；改完用脚本复核，`src/**/*.vue` 中剩余断点取值只有 640 与 1024；并用 Playwright 在 700px / 760px / 1020px 逐页检测，5 个主要页面均无横向溢出（临时用例已删除）
+  - **交互反馈（阶段二体验项）**：
+    - `FavoriteButton.vue` + `DetailHero.vue`：收藏成功时心形弹跳 + 水波纹，详情页收藏数随之滚动一次（均含 `prefers-reduced-motion` 降级）
+    - `NoteEditor.vue`：保存成功改为原地「✓ 已保存 · HH:mm」轻提示，0.9s 后自动关闭，不再只靠 Toast
+    - `TeaListView.vue`：已选条件 chip 弹入动画 + 结果数文案随筛选变化淡入
+    - `SharePanel.vue`：复制链接后按钮短暂变为「✓ 已复制」
+- 契约 / 数据 / 安全影响：无契约变更；无数据库变更；无新增依赖
+- 测试证据：
+
+  | 命令 | 范围 | 结果 | 说明 |
+  |---|---|---|---|
+  | `cd frontend; npm run lint` | ESLint | 通过（无输出） | —— |
+  | `cd frontend; npm run typecheck` | vue-tsc（strict） | 通过（无输出） | 新增组件全部通过严格类型检查 |
+  | `cd frontend; npm run test:run` | Vitest | 6 files / 45 tests passed | 纯函数用例未改动 |
+  | `cd frontend; npm run build` | Vite 生产构建 | 通过 | 仅保留既有 chunk 体积告警（非本次引入） |
+  | `cd frontend; npx playwright test` | 冒烟 5 条 | 5 passed（5.5s） | 拆组件后首页→列表→详情→收藏→分享链路无回归 |
+  | 临时断点用例（700/760/1020px × 5 页） | 横向溢出检测 | PASS | 验证后已删除用例，不留在仓库 |
+  | 后端测试 | —— | 未运行 | 本次未改任何后端文件 |
+
+- 验收结论：**通过**
+- 基线例外：无
+- 遗留问题：
+  1. `ProfileView`（640）/ `ShareView`（671）已在 TASK-20261110-07 拆分完成（148 / 286）；`ContributeView`（475）/ `ContentListView`（305）仍偏大
+  2. 阶段二计划中的「字形子集化（思源宋体）」未实施：需引入字体二进制与构建期子集化工具，单独排期
+  3. 详情页「你可能也喜欢」目前只按同茶类推荐（复用既有 `related` 数据），同产地 / 同季节需要后端接口支持，未改动契约
+- 回滚方式：`git restore` 上述 `views/`、`components/`、`composables/` 文件；本次未改后端、未改依赖、未改数据
+- 关联 ADR：无（纯前端结构重构，无架构决策）
+
+---
+
+## 2026-11-10｜前端工程优化·阶段一（分层 / strict / 冒烟）
+
+- 任务编号 / 分级：TASK-20261110-05 / A（纯前端结构重构，不改端点、字段、错误码与表结构）
+- 需求来源：工程视角评审阶段一（与产品阶段一 TASK-20261110-04 并行推进）
+- 主要变更：
+  - 新增 `frontend/src/composables/`：`useTeaList` / `useHome` / `useTeaDetail` / `useMyLists`，把 4 个巨型视图的请求、状态、派生数据、事件处理全部下沉；视图只保留结构与样式
+  - 新增原子组件：`FilterBar.vue`（筛选面板，纯展示 + 事件上报）、`TeaGrid.vue`（骨架屏 / 失败重试 / 网格三态）、`SectionHeader.vue`（区块标题 + 查看全部）、`StatCard.vue`（指标卡）
+  - 改造视图：`TeaListView`（脚本 300→约 45 行）、`HomeView`、`TeaDetailView`、`MyListView`、`ProfileView`（3 个指标卡改用 `StatCard`，删除本地 `.stat` 样式）
+  - `tsconfig.app.json`：`strict` 由 `false` 翻为 `true`（含 noImplicitAny / noImplicitThis / alwaysStrict）；修复 4 处存量错误（`AdminContents` 的 `is_active` 可空、`TYPE_LABELS` 索引断言、`AdminLogin` 的 `res.data` 可空、`AdminSettingsView` 模板事件参数隐式 any）
+  - 新增 Playwright 冒烟：`frontend/playwright.config.ts` + `frontend/e2e/smoke.spec.ts`（5 条：首页 / 列表 / 详情 / 收藏 / 分享），`package.json` 增 `test:e2e` 脚本；devDependency 增 `@playwright/test`
+  - **顺带修复 2 个真实缺陷**（冒烟过程中暴露，均属单层前端修复）：
+    1. `src/api/request.ts`：`/auth/me` 加入免跳转白名单 —— 原先游客启动时 `hydrate()` 必然 401，会被拦截器当成「登录已过期」强制跳登录页，导致**游客打开首页即被踢到登录页**
+    2. `src/main.ts`：改为「先 `hydrate()` 恢复登录态，再 `app.use(router)` 并挂载」—— 原先路由在登录态恢复前就完成首次导航，**已登录用户刷新 `/my`、`/profile` 等受保护页会被误判为游客**
+- 契约 / 数据 / 安全影响：无契约变更；无数据库变更；新增前端 devDependency `@playwright/test`（仅开发期冒烟，不进入生产包）
+- 测试证据：
+
+  | 命令 | 范围 | 结果 | 说明 |
+  |---|---|---|---|
+  | `cd frontend; npm run lint` | ESLint | 通过（无输出） | —— |
+  | `cd frontend; npm run typecheck` | vue-tsc（strict 已开启） | 通过（无输出） | strict 全量错误清零 |
+  | `cd frontend; npm run test:run` | Vitest | 6 files / 45 tests passed | 纯函数用例未改动 |
+  | `cd frontend; npm run build` | Vite 生产构建 | 通过 | 仅保留既有 chunk 体积告警（非本次引入） |
+  | `cd frontend; npx playwright test` | 冒烟 5 条 | 5 passed（5.5s） | 首页→列表→详情→收藏→分享全链路通过；收藏用例结束会复原状态，不污染测试账号 |
+  | 浏览器实测 `/`、`/teas`、`/teas/2`、`/my` | 前台主链路 | PASS | 筛选 chip、已选条件、分页、空状态、详情气泡卡、我的清单三栏布局均正常 |
+  | 后端测试 | —— | 未运行 | 本次未改任何后端文件 |
+
+- 验收结论：**通过**
+- 基线例外：无
+- 遗留问题：
+  1. 视图总行数仍偏大（`HomeView` 807 / `MyListView` 828 / `TeaDetailView` 721），但主体已是 scoped CSS 与模板；脚本逻辑已下沉到 composable（每个视图 script 约 40–60 行）。若继续压缩，需把各页区块拆成带样式的子组件，归入阶段二
+  2. 存量 9 处 `.btn` 局部定义、5 种响应式断点仍未收敛（阶段二）
+  3. `check_secrets.py` 依赖 git 历史，本地无 git 仓库时必然失败（既有遗留，非本次引入）
+- 回滚方式：删除 `src/composables/`、`FilterBar/TeaGrid/SectionHeader/StatCard.vue`、`playwright.config.ts`、`e2e/`；还原 5 个视图、`tsconfig.app.json`、`api/request.ts`、`main.ts`；`npm uninstall @playwright/test`
+- 关联 ADR：无
+
+---
+
+
+## 2026-11-10｜前端体验优化·阶段一（品牌与基础质感）
+
+- 任务编号 / 分级：TASK-20261110-04 / A（纯前端样式与元信息，不改接口契约、不改表结构）
+- 需求来源：产品视角评审结论；计划落盘 [PLAN_前端体验优化.md](../docs/development/plans/PLAN_前端体验优化.md)
+- 主要变更：
+  - `frontend/index.html`：品牌化重写 —— `lang="zh-CN"`、title「茶·图鉴 ｜ 六大茶类结构化知识库」、description、keywords、`theme-color`、OG / Twitter 分享卡片、首屏底色防白屏
+  - `frontend/src/style.css`：字体栈补 CJK 衬线回退（`Songti SC` / `STSong` / `SimSun`），标题在未加载思源宋体时仍呈现宋体质感；新增交互基线 token（焦点环、按钮高度、内边距）；新增全局 `:focus-visible` 焦点环；新增全局按钮体系 `.btn` 四档（primary / secondary / ghost / danger）+ 四态（hover / active / focus-visible / disabled）+ 尺寸变体（tiny / lg / block）
+  - `frontend/src/style.css`：新增 `--color-error-hover` / `--color-error-soft` token，避免组件内硬编码色值
+  - `frontend/src/components/EmptyState.vue`（新建）：通用空状态组件（图标 + 标题 + 说明 + 行动按钮），替代纯文字"暂无数据"
+  - `frontend/src/views/ContentListView.vue`：空状态改用 `EmptyState`，并删除失效的 `__empty` 样式
+  - `frontend/src/router/index.ts`：首页 `meta.title` 由「茶·图鉴」改为「六大茶类知识库」，修复标签页出现「茶·图鉴 | 茶·图鉴」重复拼接
+  - `docs/development/plans/PLAN_前端体验优化.md`（新建）：三阶段优化计划，含实测基线数据与验收标准
+- 契约 / 数据 / 安全影响：无。未改端点、字段、表结构、错误码；未新增运行时依赖
+- 测试证据：
+
+  | 命令 | 范围 | 结果 | 说明 |
+  |---|---|---|---|
+  | `cd frontend; npm run lint` | ESLint | 通过（无输出） | —— |
+  | `cd frontend; npm run typecheck` | vue-tsc | 通过（无输出） | —— |
+  | `cd frontend; npm run test:run` | Vitest | 6 files / 45 tests passed | 纯函数用例，未新增 |
+  | `cd frontend; npm run build` | Vite 生产构建 | 通过（1.78s） | 仅保留既有 chunk 体积告警（属阶段二 manualChunks 任务） |
+  | 浏览器实测 `/` | 首页 | PASS | `lang="zh-CN"`、`document.title` 中文品牌、六大茶类导航与热门推荐正常渲染、h1 字体族含宋体回退、控制台无 CSS/Vue 报错 |
+
+- 验收结论：**通过**
+- 基线例外：无
+- 遗留问题：
+  1. 存量 9 处 `.btn` 局部定义未逐个删除（scoped 优先级更高，全局层只补齐缺失状态）；收敛到阶段二
+  2. 存量 5 种响应式断点未全站替换；随阶段二组件拆分逐步收敛为 640 / 1024 / 1280
+  3. 思源宋体未自托管（完整中文字库 10MB+，会拖累首屏）；阶段二做子集化后落地
+  4. 茶品列表 / 我的清单 / 分享页各自实现了空状态，未统一到 `EmptyState`；阶段二收敛
+- 回滚方式：恢复 `index.html`、`style.css`、`router/index.ts`、`ContentListView.vue` 原内容，删除 `EmptyState.vue` 与计划文档
+- 关联 ADR：无
+
+---
+
 ## 2026-11-10｜合并 Gitee yuan 分支最新文件（头像 + 内容板块 + 包结构）
 
 - 任务编号 / 分级：TASK-20261110-03 / B（跨 46 个文件差异合并 + 15 个 yuan 新文件引入）
