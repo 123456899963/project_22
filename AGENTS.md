@@ -18,6 +18,7 @@
 | 启动前端 | `cd frontend; npm install; npm run dev` |
 | 后端检查 | `cd backend; python -m ruff check app tests; python -m pytest -q` |
 | 前端检查 | `cd frontend; npm run lint; npm run typecheck; npm run test:run` |
+| 前端冒烟 | `cd frontend; npm run test:e2e`（Playwright，需后端已启动） |
 | 全量静态检查 | `python scripts/check_all.py` |
 
 ### 0.2 五条红线
@@ -101,8 +102,8 @@ d:\项目二\
 | Element Plus 前台使用（已修复） | 前台 `AppToast` 自研；`main.ts` 仅在 `/admin` 路由按需加载 Element Plus | 前台禁止再引入；后台保持按需加载 |
 | Service 直连查询（已修复） | 查询已全部下沉到 `repositories/`；`check_layers.py` 基线为空 | 保持五层边界，禁止回流 |
 | Router/Service 返回 ORM（已修复） | 端点统一经 Schema 序列化后返回 | 保持统一响应体，禁止直接返回 ORM |
-| 业务端点未实现（已修复） | 55 个业务端点已按 API_CONTRACT 实现 | 新增端点必须同步契约与测试 |
-| 测试未覆盖 TEST_PLAN（已修复） | TEST_PLAN 89 条用例已落地，后端全量 170 条测试通过 | 新增业务代码必须同步补测 |
+| 业务端点未实现（已修复） | 65 个业务端点已按 API_CONTRACT 实现 | 新增端点必须同步契约与测试 |
+| 测试未覆盖 TEST_PLAN（已修复） | TEST_PLAN 90 条用例已落地，后端全量 174 条测试通过（2026-11-11） | 新增业务代码必须同步补测 |
 | 例外登记 | 运行 `python scripts/check_layers.py` / `check_frontend.py` 查看最新列表 | 修复后同步更新脚本基线 |
 
 ## 4. 前端开发规范
@@ -148,7 +149,7 @@ d:\项目二\
 
 ## 7. API 接口规范
 
-- 统一前缀 `/api/v1`；共 **55 个业务端点**（auth 5 / me 3 / teas 9 / tips 1 / favorites 3 / lists 6 / shares 4 / admin 14 / contributions 3 / contents 3 / admin-contents 4）
+- 统一前缀 `/api/v1`；共 **65 个业务端点**（auth 5 / me 4 / teas 9 / tips 1 / favorites 3 / lists 6 / shares 4 / contributions 3 / contents 3 / admin 19 / admin-audit 2 / admin-users 2 / admin-media 2 / admin-settings 2）
 - 统一响应 `{ code, message, data }`；成功判定只看 `code === 0`；成功 HTTP 状态统一 **200**；业务失败 `HTTP status = code // 100`；FastAPI 422 必须重映射为 400/`40000`
 - 认证：**HttpOnly Cookie `tea_session`**（itsdangerous 签名，30 天，`SameSite=Lax`），不使用 Token / Authorization 头；角色每次从 `users.role` 实时读库
 - JSON 字段 `snake_case`，与数据库列名一致；空值用 `null`
@@ -169,7 +170,7 @@ d:\项目二\
 
 ## 9. 测试要求
 
-- 测试方案：[TEST_PLAN.md](docs/testing/TEST_PLAN.md) v1.4 —— **89 条用例**（高 50 / 中 36 / 低 3），覆盖 48 端点 + 11 表约束 + 35 项安全控制
+- 测试方案：[TEST_PLAN.md](docs/testing/TEST_PLAN.md) v1.5 —— **90 条用例**（高 51 / 中 36 / 低 3），覆盖 48 端点 + 11 表约束 + 35 项安全控制
 - 后端：pytest + httpx（TestClient），断言同时检查 HTTP 状态码、业务 `code`、数据库最终状态
 - 前端：Vitest，仅覆盖纯函数（筛选/格式化/URL 组装）
 - 高优先级用例任一失败 = 阻断发布；错误响应不得泄露堆栈/SQL/表名
@@ -268,5 +269,5 @@ B 类输出技术方案后即可编码；C 类必须等用户明确答复。
 - [x] `SECRET_KEY` / `DEBUG` 代码默认值已收紧（2026-11-09，缺失 `SECRET_KEY` 拒绝启动）；生产部署仍需注入随机密钥与种子管理员密码 —— 安全 P0
 - [x] bcrypt 已统一为 `cost=10`（`_BCRYPT_ROUNDS`，对齐 SECURITY S-01）
 - [x] `routers/admin.py` 等端点已按 API_CONTRACT 补齐
-- [x] TEST_PLAN 89 条用例已落地；后端全量 170 条测试通过（2026-11-10）
+- [x] TEST_PLAN 90 条用例已落地；后端全量 174 条测试通过（2026-11-11）
 - [x] §3.1 基线遗留已在 2026-11-09 审查中清理（五层 / 前台 UI 遗留均为 0）
