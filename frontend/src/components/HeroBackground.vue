@@ -126,16 +126,11 @@ onBeforeUnmount(stop)
   opacity: 1;
 }
 
-/* 遮罩：抬高前景文字对比度，同时保留背景图细节 */
+/* 遮罩：单一平铺淡色（无方向、无渐变），只做轻微提亮，避免出现可见的分层/拼接线 */
 .hero-bg__veil {
   position: absolute;
   inset: 0;
-  background: linear-gradient(
-    160deg,
-    rgba(250, 248, 245, 0.6) 0%,
-    rgba(250, 248, 245, 0.48) 45%,
-    rgba(250, 248, 245, 0.36) 100%
-  );
+  background: rgba(250, 248, 245, 0.12);
 }
 
 @media (prefers-reduced-motion: reduce) {
