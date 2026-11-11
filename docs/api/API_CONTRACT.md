@@ -2,7 +2,7 @@
 
 | 项 | 值 |
 |---|---|
-| 文档版本 | **v1.6** |
+| 文档版本 | **v1.9** |
 | 创建日期 | 2026-11-06 |
 | 契约基线 | [PRD.md](../product/PRD.md) v1.1 · [DATA_MODEL.md](../architecture/DATA_MODEL.md) v1.4 · [database/init.sql](../../database/init.sql) · [MODULE_DESIGN.md](../architecture/MODULE_DESIGN.md) |
 | 本契约地位 | 前后端联调与字段命名的唯一依据。脚手架中与本契约不一致的字段，以本契约（数据库列名）为准 |
@@ -30,7 +30,7 @@
 | `/api/v1/admin` | 管理员茶品维护、上下架、小贴士、统计、图片上传 |
 
 - 路径中的静态段必须先于动态段匹配（例如 `/teas/categories` 必须先于 `/teas/{tea_id}` 注册）。
-- `/api/v1/health` 是部署探针，不返回统一业务响应体，**不属于本契约**。
+- `/api/v1/health`（存活探针）与 `/api/v1/health/ready`（就绪探针，数据库 `SELECT 1`）属于部署探针，**不属于本契约**；前者返回统一响应体 `{"code":0,"message":"ok","data":{"status":"ok"}}`，后者失败时返回 HTTP 503 + `code=50300`。
 
 ### 1.2 请求与响应编码
 
@@ -248,7 +248,7 @@ Set-Cookie: tea_session=<signed-value>; Path=/; Max-Age=2592000; HttpOnly; SameS
 - 清单描述、用户管理、修改他人账号、密码找回、邮箱登录、微信扫码登录；
 - 茶品物理删除（`DELETE /admin/teas/{id}` 不提供，只有上下架软失效）；
 - 批量导入、茶品图片删除（分享海报为纯前端生成，无接口）；
-- 管理员操作日志查询接口（日志仅服务端记录，不对外暴露，见 §6.3）。
+- 管理员操作日志查询/导出见 §4.9.3；日志仅管理员可读，前台不暴露。
 
 > 用户贡献与审核（S10–S13）已在 v1.5 纳入契约，见 §4.8；多清单（S9）见 §4.4/§4.5。
 
@@ -576,8 +576,11 @@ Set-Cookie: tea_session=<signed-value>; Path=/; Max-Age=2592000; HttpOnly; SameS
 | 44 | 管理员 | GET | `/admin/contributions` | 管理员 |
 | 45 | 管理员 | POST | `/admin/contributions/{contribution_id}/approve` | 管理员 |
 | 46 | 管理员 | POST | `/admin/contributions/{contribution_id}/reject` | 管理员 |
+| 47 | 我的 | GET | `/me/notes` | 登录用户 |
 
 > 清单条目移除不单独提供 `DELETE /lists/{tea_id}`，统一复用 `DELETE /favorites/{tea_id}`（可带 `?list_id`），避免同一语义两个入口。
+>
+> 本表为 MVP 首批与贡献/笔记端点；**头像**见 §4.7.2/§4.7.3，**内容板块与后台扩展 16 个端点**见 §4.9，合计 **65 个业务端点**（另有 `GET /api/v1/health`、`GET /api/v1/health/ready` 部署探针）。
 
 ---
 
@@ -1971,7 +1974,15 @@ curl -X POST http://127.0.0.1:8000/api/v1/admin/upload \
       "next_name": "茶人",
       "next_threshold": 20,
       "remaining": 8
-    }
+    },
+    "category_distribution": [
+      { "category": "green", "count": 5 },
+      { "category": "white", "count": 2 },
+      { "category": "yellow", "count": 0 },
+      { "category": "red", "count": 3 },
+      { "category": "oolong", "count": 1 },
+      { "category": "dark", "count": 1 }
+    ]
   }
 }
 ```
@@ -1986,6 +1997,11 @@ curl -X POST http://127.0.0.1:8000/api/v1/admin/upload \
 | `level.next_name` | string \| null | 下一等级名；已达茶师为 `null` |
 | `level.next_threshold` | integer \| null | 下一等级所需收藏数；已达茶师为 `null` |
 | `level.remaining` | integer | 距下一等级还差多少款收藏；已达茶师为 `0` |
+| `category_distribution` | array | 收藏茶类分布，固定 6 项，顺序 green / white / yellow / red / oolong / dark |
+| `category_distribution[].category` | string | 茶类枚举值 |
+| `category_distribution[].count` | integer | 该类收藏数；同一茶品跨清单只计 1 次 |
+
+- **分布口径**：只统计 `is_active=1` 的茶品，因此各项合计可能小于 `favorite_count`（后者含已下架茶）；缺失茶类固定返回 `count=0`，保证前端图表顺序稳定。
 
 - **等级规则（按收藏数实时计算，不落库）**：
 
@@ -2039,6 +2055,58 @@ curl -X POST http://127.0.0.1:8000/api/v1/admin/upload \
 |---|---|---|
 | 400 | 40000 | `preset` 不在白名单 / 请求体含额外字段 |
 | 401 | 40100 | 未登录 |
+
+#### 4.7.4 我的品鉴笔记（ADR-0005）
+
+- **方法与路径**：`GET /me/notes`
+- **权限**：登录用户
+- **参数/请求体**：无
+- **成功响应**：HTTP 200，`code=0`，`data` 为 `NoteItem[]`（按 `favorited_at` 倒序；无笔记返回 `[]`）：
+
+```json
+{
+  "code": 0,
+  "message": "ok",
+  "data": [
+    {
+      "tea_id": 1,
+      "name": "西湖龙井",
+      "category": "green",
+      "origin": "浙江 杭州",
+      "main_image_url": "/uploads/2026/11/0f8c.jpg",
+      "is_available": true,
+      "tasting_note": "第一泡豆香突出，第三泡回甘明显。",
+      "list_id": 7,
+      "list_title": "我的收藏",
+      "favorited_at": "2026-11-06T12:00:00Z"
+    }
+  ]
+}
+```
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `tea_id` | integer | 茶品 ID |
+| `name` | string | 茶品名称 |
+| `category` | string | 六大茶类枚举值 |
+| `origin` | string | 产地 |
+| `main_image_url` | string \| null | 主图地址 |
+| `is_available` | boolean | 茶品是否仍上架（`false` 表示已下架，前端灰显） |
+| `tasting_note` | string | 笔记正文（非空） |
+| `list_id` | integer | 笔记所属清单 ID |
+| `list_title` | string | 笔记所属清单标题 |
+| `favorited_at` | datetime | 收藏时间（ISO8601 带 `Z`），非笔记编辑时间 |
+
+- **口径**：
+  - 只返回非空笔记（`tasting_note` 为 `NULL` / 空白串不返回）。
+  - **同一茶品跨清单只返回 1 条**：默认清单有非空笔记时优先，否则取最近收藏的那条；条数与 `/me/stats` 的 `note_count` 口径一致。
+  - 含已下架茶品（历史笔记不因下架丢失），以 `is_available=false` 标识。
+  - 按 `favorited_at` 倒序；MVP 不分页。
+- **错误**：
+
+| HTTP | code | 触发 |
+|---|---|---|
+| 401 | 40100 | 未登录/会话过期 |
 
 ---
 
@@ -2171,6 +2239,49 @@ curl -X POST http://127.0.0.1:8000/api/v1/admin/upload \
 - **规则**：仅 `pending` 可操作；`reason` 回传用户端“我的提交”；写入 `operation_logs`（`action='reject_contribution'`）。
 - **成功响应**：HTTP 200，`code=0`，`data` 为更新后的 `ContributionItem`。
 - **错误**：`40000`（理由为空/超长、提交已处理）、`40100`、`40300`、`40440`。
+
+---
+
+### 4.9 内容板块与后台扩展端点（v1.9 补齐）
+
+本节补齐此前只存在于实现与 [openapi.yaml](openapi.yaml) 的 16 个端点；字段细节与 openapi.yaml 同名 Schema 一致，统一响应体与权限规则同 §1 / §2。
+
+#### 4.9.1 内容板块（前台，公开）
+
+| 方法 | 路径 | 说明 | 成功 `data` |
+|---|---|---|---|
+| GET | `/content-types` | 5 个板块分类（按 `sort_order`） | `ContentType[]`：`id/type_code/code/name/icon/description/sort_order` |
+| GET | `/contents` | 条目列表，支持 `type_code`、`page`、`page_size`（默认 12，上限 50） | `{items, total, page, page_size}` |
+| GET | `/contents/{item_id}` | 条目详情（仅 `is_active=1`；不存在或已下架 → `404/40460`） | `ContentItem` |
+
+`ContentItem` 字段：`id/type_id/type_code/title/summary/body/cover_image/meta/sort_order/created_at/updated_at`；时间 ISO8601 带 `Z`。
+
+#### 4.9.2 内容板块（后台，管理员）
+
+| 方法 | 路径 | 说明 | 成功 `data` |
+|---|---|---|---|
+| GET | `/admin/contents` | 列表（含下架），支持 `type_code`、`is_active`、`page`、`page_size` | `{items: AdminContentListItem[], ...}` |
+| GET | `/admin/contents/{item_id}` | 编辑回填（含下架） | `ContentItem` |
+| POST | `/admin/contents` | 创建；body：`type_code/title/summary/body/cover_image/meta/sort_order` | `ContentItem` |
+| PUT | `/admin/contents/{item_id}` | 更新；body 同创建，另可传 `is_active` | `ContentItem` |
+| DELETE | `/admin/contents/{item_id}` | 软删除（`is_active=0`） | `{deleted: item_id}` |
+
+校验：`title` ≤ 200、`summary` ≤ 500、`body` ≤ 20000、`cover_image` ≤ 500 且为 `http(s)://` 或 `/uploads/`；`meta` 按板块白名单校验，未知字段 → `400/40000`。写操作记录 `operation_logs`。
+
+#### 4.9.3 后台扩展（管理员）
+
+| 方法 | 路径 | 说明 | 成功 `data` |
+|---|---|---|---|
+| GET | `/admin/audit-logs` | 审计日志分页；支持 `user_id/action/from/to/page/page_size`（默认 20，上限 50） | `{items,total,page,page_size}`；item：`id/user_id/username/action/target_type/target_id/detail/created_at` |
+| GET | `/admin/audit-logs/export` | CSV 导出（最多 2000 条，UTF-8 BOM） | `text/csv` 文件流 |
+| GET | `/admin/users` | 用户分页；支持 `role/keyword/page/page_size` | `{items,total,page,page_size}`；item：`id/username/role/created_at` |
+| PATCH | `/admin/users/{user_id}/role` | 变更角色；body `{role: "user"｜"admin"}`；用户不存在 → `404/40400` | `null` |
+| GET | `/admin/media` | 全站图片分页（默认 50，上限 100） | `{items,total,page,page_size}`；item：`id/tea_id/image_url/sort_order` |
+| GET | `/admin/media/teas/{tea_id}` | 指定茶图片数组（含下架茶） | `AdminImageItem[]` |
+| GET | `/admin/settings` | 运行时配置项 | `{items: [{key,value}]}` |
+| PATCH | `/admin/settings` | 白名单配置写入；body `{items:[{key,value}]}`；未知 key 忽略 | `null` |
+
+权限：全部要求管理员会话；未登录 `401/40100`，非管理员 `403/40300`。
 
 ---
 
@@ -2317,7 +2428,7 @@ curl -X POST http://127.0.0.1:8000/api/v1/admin/upload \
 - 仅管理员写操作记录 1 行，读操作不记录。
 - `user_id` 可为空（账号删除后 `SET NULL`），审计不随账号消失。
 - `target_id` 不建外键，避免删茶/下架影响历史日志。
-- MVP 不提供日志查询接口；如需排查，直接查询 `operation_logs` 表。
+- 管理员可通过 `GET /admin/audit-logs` 只读查询、`GET /admin/audit-logs/export` 导出 CSV（最多 2000 条）；不提供日志写入/删除接口。
 
 ### 6.4 契约与既有脚手架的差异（落地时以此为准）
 
@@ -2381,3 +2492,6 @@ curl -X POST http://127.0.0.1:8000/api/v1/admin/upload \
 | **v1.4** | 2026-11-09 | 批次三 S9 多收藏清单：清单拆分为 6 个端点；`FavoriteState` 增 `list_ids`，收藏/取消/分享支持可选 `list_id`；新增错误码 `40420`；`favorite_count` 改为跨清单去重；接口总览 37 → 40 个 |
 | **v1.5** | 2026-11-09 | 批次四 S10–S13 用户贡献：新增 §4.8 六个端点；`TeaDetail` 增 `contributed_articles`；新增错误码 `40440`；新增枚举 `contribution.type/status`；新增 §5.9 `contributions`、§5.10 `tea_name_category_map`；接口总览 40 → 46 个 |
 | **v1.6** | 2026-11-10 | ADR-0004 用户头像：`User` 增 `avatar_url`；新增 §4.7.2 `POST /me/avatar`、§4.7.3 `PUT /me/avatar`；错误码复用 400/401/413/415；接口总数 53 → 55 |
+| **v1.7** | 2026-11-11 | 阶段四 TASK-20261111-02：§4.7.1 `UserStats` 新增 `category_distribution`（六大茶类固定顺序、只统计上架茶） |
+| **v1.8** | 2026-11-11 | ADR-0005：新增 §4.7.4 `GET /me/notes`（每款茶 1 条、默认清单优先、含下架茶标记）；接口总数 55 → 56 |
+| **v1.9** | 2026-11-11 | 契约漂移修复：新增 §4.9 内容板块（8 个）与后台扩展端点（审计 2 / 用户 2 / 图片库 2 / 设置 2），补齐 §4.9.2 后台内容详情；§6.3 更正审计日志可查询/导出；业务端点总数统一为 65 个 |
