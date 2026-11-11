@@ -17,7 +17,7 @@ import NotFound from '@/views/NotFound.vue'
 
 const routes: RouteRecordRaw[] = [
   // —— 前台 ——
-  { path: '/', name: 'home', component: HomeView, meta: { title: '茶·图鉴' } },
+  { path: '/', name: 'home', component: HomeView, meta: { title: '六大茶类知识库' } },
   { path: '/teas', name: 'tea-list', component: TeaListView, meta: { title: '茶品列表' } },
   { path: '/teas/:id', name: 'tea-detail', component: TeaDetailView, meta: { title: '茶品详情' } },
   { path: '/compare', name: 'compare', component: CompareView, meta: { title: '六大茶类对比' } },
