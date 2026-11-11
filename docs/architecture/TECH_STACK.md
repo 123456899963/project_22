@@ -39,7 +39,7 @@
 | 前台页面 | 6 个路由（首页/列表/详情/清单/分享公开页/404）+ 登录注册模态框 | PAGE_SPECS §1.1 |
 | 管理后台 | 5 个页面（登录/仪表盘/茶品列表/新增/编辑） | PAGE_SPECS §1.2 |
 | 组件数量 | 约 25-35 个（原型已实现导航/卡片/筛选/骨架屏/Toast/模态框） | 原型 `js/common.js` + `js/admin.js` 可拆分数量 |
-| REST 端点 | 29 个（定稿见 [API_CONTRACT.md](../api/API_CONTRACT.md) §3） | 茶品 CRUD + 筛选聚合 + 认证 + 收藏 + 清单 + 分享令牌 + 小贴士 + 上下架 |
+| REST 端点 | 65 个（MVP 首批 29 个，后续扩展内容板块与后台管理；定稿见 [API_CONTRACT.md](../api/API_CONTRACT.md) §3） | 茶品 CRUD + 筛选聚合 + 认证 + 收藏 + 清单 + 分享令牌 + 小贴士 + 上下架 |
 | 数据表 | 7 张（定稿见 [DATA_MODEL.md](DATA_MODEL.md) §2：`tasting_note` 已合并入 `favorite_items`、不建 `session`、新增 `collection_lists`） | `users` / `teas` / `tea_tips` / `collection_lists` / `favorite_items` / `share_tokens` / `operation_logs` |
 | 查询复杂度 | **低** | AND 筛选、双维排序、分页、`ORDER BY RAND()` 随机发现、LIKE 关键词搜索（X9 明确不做相关度算法） |
 | 并发/数据量 | **小** | 初始 30-50 款茶；MVP 用户量小，无高并发、无海量数据、无实时通信 |
