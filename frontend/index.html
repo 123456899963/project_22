@@ -1,10 +1,46 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>frontend</title>
+
+    <!-- ===== 品牌基础信息 ===== -->
+    <title>茶·图鉴 ｜ 六大茶类结构化知识库</title>
+    <meta
+      name="description"
+      content="茶·图鉴：覆盖绿茶、白茶、黄茶、青茶、红茶、黑茶六大茶类的结构化知识库。按茶类、产地、季节筛选茶品，查看产区、工艺、冲泡与品鉴笔记，收藏并分享给茶友。"
+    />
+    <meta name="keywords" content="茶,六大茶类,茶叶知识,茶文化,绿茶,白茶,黄茶,乌龙茶,红茶,黑茶" />
+    <meta name="theme-color" content="#8b7355" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+    <!-- ===== 社交分享卡片（微信 / QQ / 微博 / Twitter） ===== -->
+    <!-- SPA 为静态注入，站点级统一卡片；单条茶品页如需独立卡片，需服务端渲染或预渲染 -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="茶·图鉴" />
+    <meta property="og:title" content="茶·图鉴 ｜ 六大茶类结构化知识库" />
+    <meta
+      property="og:description"
+      content="发现茶 · 查看详情 · 收藏笔记 · 分享给茶友。六大茶类的产区、工艺、冲泡与品鉴，一页读全。"
+    />
+    <meta property="og:image" content="/images/banners/banner-dark.webp" />
+    <meta property="og:locale" content="zh_CN" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="茶·图鉴 ｜ 六大茶类结构化知识库" />
+    <meta
+      name="twitter:description"
+      content="发现茶 · 查看详情 · 收藏笔记 · 分享给茶友。六大茶类的产区、工艺、冲泡与品鉴，一页读全。"
+    />
+    <meta name="twitter:image" content="/images/banners/banner-dark.webp" />
+
+    <!-- ===== 首屏底色，避免白屏闪烁 ===== -->
+    <style>
+      html,
+      body {
+        margin: 0;
+        background: #faf8f5;
+      }
+    </style>
   </head>
   <body>
     <div id="app"></div>
