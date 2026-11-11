@@ -239,6 +239,19 @@ localStorage.setItem('tea_notes', JSON.stringify({
 
 common.js 的 openLoginModal 在登录成功和注册成功后都会 `document.dispatchEvent(new CustomEvent('tea:login'))`。所有需要登录的页面（P3 分享/收藏按钮、P4 收藏清单）都监听此事件来刷新 UI 状态。
 
+### 5.6 收藏清单选择面板（S9 多清单交互，Vue 实现新增）
+
+**组件**：`frontend/src/components/FavoriteButton.vue`（仅 primary variant，用于茶品详情页）
+
+详情页主收藏按钮右侧附加「选择清单」箭头按钮，与主按钮拼为胶囊组合：
+
+- 主按钮行为不变：未收藏 → 加入默认清单；已收藏 → 从全部清单移除
+- 箭头按钮（仅登录态渲染）：展开清单选择面板，逐清单勾选/取消收录；勾选态由收藏状态响应 `list_ids` 驱动（`aria-checked` 同步）
+- 面板行为：懒加载 `GET /lists`；点击清单行幂等切换（已含则移出、未含则加入）；计数按「用户 × 茶品」去重口径联动（加入首个清单 +1、移出最后一个清单 -1）
+- 关闭方式：Esc（焦点回箭头）、点击面板外区域、路由跳转
+- 无障碍：`aria-haspopup` + `aria-expanded` + `role="menu"` / `role="menuitemcheckbox"`；触屏可用（不依赖 hover）
+- 视觉：全部引用 `:root` 设计变量，无硬编码 HEX
+
 ---
 
 ## 六、P4 收藏清单页完整规格
@@ -412,3 +425,87 @@ share.js 从 `window.location.pathname.split('/')[3]` 提取 shareId。
 | 5 | 没有骨架屏以外的异步错误状态（如 API 超时） | 纯前端无真实请求 | 接后端后加 error boundary |
 | 6 | 管理员 CRUD 也是 localStorage，**清缓存后重置** | 纯前端原型天生限制 | 接后端后持久化 |
 | 7 | 管理员角色单一（只有 admin），无权限分级 | MVP 简化 | 第二阶段扩展 |
+
+---
+
+## 十三、Vue 前台视觉改版记录（2026-11-11「一席六笺 · 茶山长卷」）
+
+> 范围：**仅前台 P1 首页 / P2 列表 / P3 详情** 的布局、样式与装饰性交互；不改路由、API 调用、筛选/分页/收藏/分享等业务逻辑；`原型/` 静态原型保持不动，作为历史基准。
+> 视觉目标：用「手卷五章 + 茶席器物」替代通用电商卡片风格，纸张暖米白、墨色文字、朱砂点缀，标题用楷体，图标一律线描。
+
+### 13.1 设计 Token 与基础样式（`frontend/src/style.css`）
+
+| 类别 | 变量 / 规则 | 值 / 说明 |
+|---|---|---|
+| 纸张 | `--color-paper` / `--color-paper-deep` / `--color-paper-edge` | `#f6f1e7` / `#efe7d8` / `#e2d6c1` |
+| 墨色 | `--color-ink` / `--color-ink-soft` / `--color-ink-faint` | `#1f1b16` / `#4a4238` / `#8a8072` |
+| 朱砂 | `--color-cinnabar` / `--color-cinnabar-soft` | `#b03a2e` / `rgba(176,58,46,.08)`，用于印章、短标、选中强调 |
+| 汤色 | `--soup-green/white/yellow/red/oolong/dark` | 六类茶专属汤色，用于列表/卡片细条与分类笺 |
+| 圆角 | `--radius-xs/sm/md` = 2px；`--radius-lg/xl` = 3px | 去圆角化，接近纸张切边 |
+| 字体 | `--font-display` / `--font-kai` | 首选自托管 `LXGW WenKai`（`/fonts/lxgw-wenkai-subset.woff2`，`font-display: swap`），回退 Kaiti SC / STKaiti / KaiTi / Noto Serif SC |
+| 纸纹 | `body` 背景叠加 SVG data-URI 噪点 | 纯 CSS，无额外请求 |
+| 工具类 | `.paper-texture` / `.ink-rule` / `.vertical-text` / `.seal` / `.scroll-kicker` | 纸面、墨线、竖排（`writing-mode: vertical-rl` + `nowrap`）、朱砂印、卷首小标 |
+
+- 组件内只引用变量，HEX 仍仅允许出现在 `style.css`。
+- 不新增任何运行时依赖；字体为静态资源，构建时可缺失（自动回退系统楷体）。
+- 与 `DESIGN_SYSTEM.md` 原表相比：页面底色由 `#FAF8F5` 调整为 `#f6f1e7`，圆角由 8–16px 收紧到 2–3px。这是本次已确认的「手卷」视觉方向，Token 名称与语义保持不变；`DESIGN_SYSTEM.md` 的组件示例仍以原值为准，实际以 `style.css` 为准。
+
+### 13.2 公共组件
+
+| 组件 | 变化 |
+|---|---|
+| `AppHeader.vue` | 品牌改为朱砂「茶」印 + `茶 · 图鉴`；导航用 `--font-kai`；下拉箭头改 CSS 三角；搜索框/登录按钮去圆角；`router-link-active` 用朱砂下划线 |
+| `AppFooter.vue` | 「茶席落款」：纸深底 + 双层墨线，左朱砂印 + 品牌文案，右竖排「一盏知山水 · 一叶见春秋」 |
+| `TeaWareIcon.vue`（新增） | 24×24 线描茶器 13 种：`gaiwan/cup/teapot/jar/aroma/cake/leaf/kettle/spoon/clock/steam/drop/scroll`；`aria-hidden`，替代前台 emoji |
+| `teaWare.ts`（新增） | 共享 `TeaWareName` 类型（SFC `<script setup>` 不能导出类型） |
+| `TeaCard.vue` | 「茶样盒」：4:3 满宽主图 + `NO.001` 编号 + 4px 汤色条 + 产地小印 + 右上方形收藏按钮；容器 2px 圆角 |
+| `CategoryTag.vue` | 未改（仍为六类专属色） |
+
+### 13.3 P1 首页：手卷五章
+
+`HomeView.vue` 只做组装，右侧 `ChapterRail` 固定显示（≥1280px）；章节锚点为 `#chapter-1` … `#chapter-5`，滚动高亮用 `IntersectionObserver`（`rootMargin: -40% 0px -50% 0px`），点击平滑滚动。
+
+| 章 | 组件 | 结构与交互 |
+|---|---|---|
+| 卷一 寻茶 | `HeroSearch.vue` | 7/5 非对称双栏：左列竖排品牌 + `scroll-kicker` + 大标题「一盏中国茶 / 半卷山水味」+ 搜索条（label 竖排「茶笺」、按钮「寻茶」、建议下拉逻辑不变）；右列图片盘（`HeroBackground` 轮播）+ 竖排《茶经》句 + 图鉴印；底部「汤色带」六个茶类链接 → `?category=` |
+| 卷二 六笺 | `CategoryGrid.vue` | 12 栏网格，前两类各占 4×2（大笺），其余各 2×1；每笺竖排茶名 + 汤色条 + 线描茶器 + 收录数量；点击跳列表 |
+| 卷三 茶架 | `HotTeas.vue` | 横向滚动轨道 + 木架横板；左右箭头滚动；卡片复用 `TeaCard`；「查看全部」→ `/teas` |
+| 卷四 茶签 | `RandomTea.vue` | CSS 签筒（筒身 + 5 支签 + 筒口）；「抽一支」触发 `shuffle`（400ms 旋转由父级 `spinning` 控制）；签文卡用线描茶器展示水温/投茶量/时间 |
+| 卷五 茶话 | `TipsSection.vue` | 三列便签墙，便签带旋转与胶带；点击便签跳对应茶详情 |
+| 落款 | `HomeView` | 墨线 + 朱砂「茶」印 + 「一席六笺 · 未完待续」 |
+
+响应式：`ChapterRail` 仅在 ≥1280px 显示；≤820px Hero 改单列；≤640px 六笺取消错落、改为 2×3 等分，汤色带横向滚动，便签墙单列。
+
+### 13.4 P2 列表页：茶品总目
+
+- 题头 `.list-head`：`scroll-kicker`「茶品总目」+ 标题（面包屑同源）+ 一句说明。
+- 两栏 `.list-layout`：左栏 **264px** `.list-aside`（sticky `top:84px`，`max-height: calc(100vh - 104px)` 内部滚动），右栏结果区。
+- `FilterBar.vue` 改为纵向「茶柜」：`筛` 印 + 「茶柜 / 按需取茶，逐层收窄」；每组抽屉带朱砂拉手；茶类 chip 带汤色点与分类色描边；价格下拉与组合方式分段按钮保留原事件。
+- `FilterChips.vue`：纸深底方签，pill 方角描边，关闭按钮方形朱砂 hover。
+- `TeaGrid.vue`：间距 20px，骨架屏 2px 圆角、图片 4:3。
+- 空态：线描茶架 SVG（`empty-state__art`）替代 🫖，保留「清除筛选 + 3 款热门推荐」。
+- 响应式：≤1024px 茶柜转横向 wrap 并取消 sticky；≤640px 恢复纵向单列。
+
+### 13.5 P3 详情页：一席 · 四帖 · 茶则
+
+| 区块 | 组件 | 结构与交互 |
+|---|---|---|
+| 一席（头部） | `DetailHero.vue` | `minmax(0,440px) 1fr` 双栏，左列 sticky（`top:88px`）：纸框主图 + 分类标签 + 朱砂茶名印（前 4 字 2×2）+ 图集缩略（「签1/签2」）；右列 meta + 茶名 + 产地印 + **茶则三则**（水温/投茶量/时间，线描图标 + 底纹刻度）+ 操作区（收藏/写笔记/分享/投稿，事件不变） |
+| 区块外壳 | `DetailSection.vue` | 顶部墨线；标题前朱砂方点，楷体标题，右侧渐隐线 |
+| 品鉴四帖 | `DetailSenses.vue` | 外形/汤色/香气/滋味四帖，左竖排标题 + 朱砂竖线 + 线描图标；4/2/1 列响应式，`min-height:186px` |
+| 茶小知识 | `DetailTips.vue` | 两列便签，顶部 2px 茶褐边，线描图标；空内容整块隐藏（逻辑不变） |
+| 其余区块 | `DetailVideo/Articles/Related` | 沿用原结构与数据，仅随全局 Token 去圆角、换墨色 |
+
+响应式：≤1024px 头部改单列、主图取消 sticky；≤640px 操作区换行、四帖单列。
+
+### 13.6 动效与可访问性
+
+- 所有新增过渡/旋转/滚动动效均在 `@media (prefers-reduced-motion: reduce)` 下关闭或降级（含「抽签」旋转、Hero 轮播、便签 hover）。
+- 装饰性图标、印章、纸纹、墨线均 `aria-hidden="true"`；不截获焦点、不改变 Tab 顺序。
+- 竖排文字仅用于短标题/印章，正文保持横排；`.vertical-text` 强制 `nowrap` 防止单字断列。
+- 正文与纸底对比度沿用 `--color-ink` / `--color-ink-soft`（≥ 7:1 / ≥ 4.5:1），朱砂仅做小面积强调。
+
+### 13.7 未变更项（回归确认）
+
+- 路由、导航守卫、搜索建议、筛选/排序/分页 URL 同步、收藏、笔记、分享、投稿、下拉刷新全部沿用原逻辑。
+- 后端接口、请求参数、响应字段、错误码零改动；`原型/`、`DESIGN_SYSTEM.md` 既有 Token 语义未破坏（仅新增与细化）。
