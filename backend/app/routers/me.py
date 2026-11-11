@@ -1,4 +1,4 @@
-"""我的模块路由（S15 / ADR-0004 / API_CONTRACT §4.7）"""
+"""我的模块路由（S15 / ADR-0004 / ADR-0005 / API_CONTRACT §4.7）"""
 
 from fastapi import APIRouter, Depends, File, UploadFile
 from sqlalchemy.orm import Session
@@ -8,6 +8,7 @@ from app.core.database import get_db
 from app.core.response import ok
 from app.schemas.auth import AvatarPresetRequest, UserResponse
 from app.services import me as me_service
+from app.services import notes as notes_service
 from app.services import stats as stats_service
 
 router = APIRouter()
@@ -18,6 +19,13 @@ def get_my_stats(current_user=Depends(get_current_user), db: Session = Depends(g
     """当前用户统计与等级（§4.7.1）。需登录。"""
     data = stats_service.get_stats(db, current_user.id)
     return ok(data.model_dump())
+
+
+@router.get("/notes")
+def list_my_notes(current_user=Depends(get_current_user), db: Session = Depends(get_db)):
+    """当前用户的品鉴笔记（§4.7.4）：每款茶 1 条，默认清单优先。需登录。"""
+    items = notes_service.list_notes(db, current_user.id)
+    return ok([item.model_dump() for item in items])
 
 
 @router.post("/avatar")
