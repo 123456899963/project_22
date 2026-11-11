@@ -2,7 +2,7 @@ openapi: 3.0.3
 
 info:
   title: 茶·图鉴 API
-  version: 1.6.0
+  version: 1.7.0
   description: |
     六大茶类结构化知识库平台 MVP 后端接口契约。
 
@@ -267,6 +267,29 @@ paths:
                 $ref: '#/components/schemas/UserEnvelope'
         '400':
           $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /me/notes:
+    get:
+      tags: [我的]
+      summary: 我的品鉴笔记（ADR-0005）
+      description: |
+        登录用户；返回当前用户全部非空笔记，按收藏时间倒序，不分页。
+        同一茶品跨清单只返回 1 条：默认清单有非空笔记时优先，否则取最近收藏的那条。
+        含已下架茶品（is_available=false）；条数与 /me/stats 的 note_count 口径一致。
+      operationId: listMyNotes
+      security:
+        - teaSession: []
+      responses:
+        '200':
+          description: 我的品鉴笔记
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NoteItemListEnvelope'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '500':
@@ -1203,6 +1226,188 @@ paths:
         '500':
           $ref: '#/components/responses/ServerError'
 
+  /admin/audit-logs:
+    get:
+      tags: [管理员]
+      summary: 审计日志分页查询
+      description: |
+        管理员只读；按操作者、动作、时间范围筛选，时间倒序。
+        `from` / `to` 接受 ISO 8601，解析失败按未传处理。
+      operationId: adminListAuditLogs
+      security:
+        - teaSession: []
+      parameters:
+        - name: user_id
+          in: query
+          required: false
+          description: 操作者 user_id
+          schema:
+            type: integer
+        - name: action
+          in: query
+          required: false
+          description: 动作名，如 create_tea
+          schema:
+            type: string
+        - name: from
+          in: query
+          required: false
+          description: 起始时间（ISO 8601）
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          required: false
+          description: 结束时间（ISO 8601）
+          schema:
+            type: string
+            format: date-time
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: page_size
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+      responses:
+        '200':
+          description: 审计日志分页列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditLogListEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /admin/audit-logs/export:
+    get:
+      tags: [管理员]
+      summary: 审计日志 CSV 导出
+      description: 最多导出 2000 条；UTF-8 BOM，字段顺序固定。
+      operationId: adminExportAuditLogs
+      security:
+        - teaSession: []
+      responses:
+        '200':
+          description: CSV 文件
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /admin/users:
+    get:
+      tags: [管理员]
+      summary: 用户列表（管理员只读）
+      description: 支持角色筛选与用户名模糊搜索；时间倒序。
+      operationId: adminListUsers
+      security:
+        - teaSession: []
+      parameters:
+        - name: role
+          in: query
+          required: false
+          description: user / admin 筛选
+          schema:
+            type: string
+            enum: [user, admin]
+        - name: keyword
+          in: query
+          required: false
+          description: 用户名模糊搜索
+          schema:
+            type: string
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: page_size
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+      responses:
+        '200':
+          description: 用户分页列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUserListEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /admin/users/{user_id}/role:
+    patch:
+      tags: [管理员]
+      summary: 变更用户角色
+      description: 仅允许 user / admin；写入 operation_logs(update_user_role)。
+      operationId: adminUpdateUserRole
+      security:
+        - teaSession: []
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminUserRoleUpdate'
+      responses:
+        '200':
+          description: 变更成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmptyEnvelope'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: 用户不存在（code=40400）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
   /admin/upload:
     post:
       tags: [管理员]
@@ -1352,6 +1557,118 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/TeaNotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /admin/media:
+    get:
+      tags: [管理员]
+      summary: 图片库全局浏览
+      description: 跨茶品分页列出全部图片（含下架茶品），按 id 倒序。
+      operationId: adminListAllMedia
+      security:
+        - teaSession: []
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: page_size
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        '200':
+          description: 图片分页列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminImageListEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /admin/media/teas/{tea_id}:
+    get:
+      tags: [管理员]
+      summary: 某茶图片集（含下架茶品）
+      description: 按 sort_order 升序返回该茶全部图片；不做分页。
+      operationId: adminListTeaMedia
+      security:
+        - teaSession: []
+      parameters:
+        - $ref: '#/components/parameters/TeaIdPath'
+      responses:
+        '200':
+          description: 图片数组
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminImageArrayEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /admin/settings:
+    get:
+      tags: [管理员]
+      summary: 运行时配置读取
+      description: 返回全部白名单配置项，区分可写/只读。
+      operationId: adminListSettings
+      security:
+        - teaSession: []
+      responses:
+        '200':
+          description: 配置项列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminSettingsEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    patch:
+      tags: [管理员]
+      summary: 运行时配置写入
+      description: 仅白名单 key 生效；未知 key 忽略。写入 operation_logs(update_settings)。
+      operationId: adminUpdateSettings
+      security:
+        - teaSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminSettingsUpdateRequest'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmptyEnvelope'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '500':
           $ref: '#/components/responses/ServerError'
 
@@ -1713,6 +2030,38 @@ paths:
           $ref: '#/components/responses/ServerError'
 
   /admin/contents/{item_id}:
+    get:
+      tags: [管理员]
+      summary: 后台内容详情（编辑回填）
+      description: 含下架条目；用于编辑表单回填。
+      operationId: adminGetContent
+      security:
+        - teaSession: []
+      parameters:
+        - name: item_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 内容详情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentItemEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: 条目不存在（code=40460）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '500':
+          $ref: '#/components/responses/ServerError'
     put:
       tags: [管理员]
       summary: 更新内容条目（全量替换；API_CONTRACT §4.6.13 PUT）
@@ -2018,6 +2367,21 @@ components:
             data: null
 
   schemas:
+    DateTimeZ:
+      type: string
+      format: date-time
+      description: ISO 8601 UTC 时间，带 Z 后缀（如 2026-11-11T08:00:00Z）
+      example: '2026-11-11T08:00:00Z'
+
+    BoolEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ApiEnvelope'
+        - type: object
+          required: [data]
+          properties:
+            data:
+              type: boolean
+
     ApiEnvelope:
       type: object
       description: 统一响应体；data 结构由具体接口决定
@@ -2122,9 +2486,22 @@ components:
           type: integer
           example: 8
 
+    CategoryDistributionItem:
+      type: object
+      required: [category, count]
+      properties:
+        category:
+          type: string
+          enum: [green, white, yellow, red, oolong, dark]
+          example: green
+        count:
+          type: integer
+          minimum: 0
+          example: 5
+
     UserStats:
       type: object
-      required: [favorite_count, note_count, share_count, level]
+      required: [favorite_count, note_count, share_count, level, category_distribution]
       properties:
         favorite_count:
           type: integer
@@ -2137,6 +2514,76 @@ components:
           example: 1
         level:
           $ref: '#/components/schemas/UserLevel'
+        category_distribution:
+          type: array
+          description: 固定 6 项，顺序 green / white / yellow / red / oolong / dark；只统计上架茶，合计可能小于 favorite_count
+          minItems: 6
+          maxItems: 6
+          items:
+            $ref: '#/components/schemas/CategoryDistributionItem'
+
+    NoteItem:
+      type: object
+      required:
+        [
+          tea_id,
+          name,
+          category,
+          origin,
+          is_available,
+          tasting_note,
+          list_id,
+          list_title,
+          favorited_at,
+        ]
+      properties:
+        tea_id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: 西湖龙井
+        category:
+          type: string
+          enum: [green, white, yellow, red, oolong, dark]
+          example: green
+        origin:
+          type: string
+          example: 浙江 杭州
+        main_image_url:
+          type: string
+          nullable: true
+          example: /uploads/2026/11/0f8c.jpg
+        is_available:
+          type: boolean
+          description: 茶品是否仍上架；false 表示已下架
+          example: true
+        tasting_note:
+          type: string
+          description: 笔记正文（非空）
+          example: 第一泡豆香突出，第三泡回甘明显。
+        list_id:
+          type: integer
+          example: 7
+        list_title:
+          type: string
+          example: 我的收藏
+        favorited_at:
+          type: string
+          format: date-time
+          description: 收藏时间（非笔记编辑时间）
+          example: '2026-11-06T12:00:00Z'
+
+    NoteItemListEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ApiEnvelope'
+        - type: object
+          required: [data]
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/NoteItem'
 
     UserStatsEnvelope:
       allOf:
@@ -3846,3 +4293,180 @@ components:
                   type: integer
                 page_size:
                   type: integer
+
+    AuditLogItem:
+      type: object
+      required: [id, action, created_at]
+      properties:
+        id:
+          type: integer
+          format: int64
+        user_id:
+          type: integer
+          format: int64
+          nullable: true
+        username:
+          type: string
+          nullable: true
+        action:
+          type: string
+        target_type:
+          type: string
+          nullable: true
+        target_id:
+          type: integer
+          format: int64
+          nullable: true
+        detail:
+          type: string
+          nullable: true
+        created_at:
+          $ref: '#/components/schemas/DateTimeZ'
+
+    AuditLogListEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ApiEnvelope'
+        - type: object
+          required: [data]
+          properties:
+            data:
+              type: object
+              required: [items, total, page, page_size]
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/AuditLogItem'
+                total:
+                  type: integer
+                page:
+                  type: integer
+                page_size:
+                  type: integer
+
+    AdminUserItem:
+      type: object
+      required: [id, username, role, created_at]
+      properties:
+        id:
+          type: integer
+          format: int64
+        username:
+          type: string
+        role:
+          type: string
+          enum: [user, admin]
+        created_at:
+          $ref: '#/components/schemas/DateTimeZ'
+
+    AdminUserListEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ApiEnvelope'
+        - type: object
+          required: [data]
+          properties:
+            data:
+              type: object
+              required: [items, total, page, page_size]
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/AdminUserItem'
+                total:
+                  type: integer
+                page:
+                  type: integer
+                page_size:
+                  type: integer
+
+    AdminUserRoleUpdate:
+      type: object
+      additionalProperties: false
+      required: [role]
+      properties:
+        role:
+          type: string
+          enum: [user, admin]
+
+    AdminImageItem:
+      type: object
+      required: [id, tea_id, image_url, sort_order]
+      properties:
+        id:
+          type: integer
+          format: int64
+        tea_id:
+          type: integer
+          format: int64
+        image_url:
+          type: string
+        sort_order:
+          type: integer
+
+    AdminImageListEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ApiEnvelope'
+        - type: object
+          required: [data]
+          properties:
+            data:
+              type: object
+              required: [items, total, page, page_size]
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/AdminImageItem'
+                total:
+                  type: integer
+                page:
+                  type: integer
+                page_size:
+                  type: integer
+
+    AdminImageArrayEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ApiEnvelope'
+        - type: object
+          required: [data]
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/AdminImageItem'
+
+    AdminSettingsItem:
+      type: object
+      required: [key, value]
+      properties:
+        key:
+          type: string
+        value:
+          type: string
+
+    AdminSettingsEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ApiEnvelope'
+        - type: object
+          required: [data]
+          properties:
+            data:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/AdminSettingsItem'
+
+    AdminSettingsUpdateRequest:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/AdminSettingsItem'
