@@ -10,6 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 CHECKS = [
     "scripts/check_links.py",
     "scripts/check_constants.py",
+    "scripts/check_contract.py",
     "scripts/check_layers.py",
     "scripts/check_frontend.py",
     "scripts/check_records.py",
